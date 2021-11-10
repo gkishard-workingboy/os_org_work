@@ -24,7 +24,6 @@ static volatile int global_index = FIRST_PRIME;
 static volatile int barrier_state = 0;
 static volatile int begin_flag = 0;
 static atomic_t start_guard, end_guard;
-// static struct timespec init_begin = {0, 0}, threads_begin = {0, 0}, threads_end = {0, 0};
 static ktime_t init_begin = 0ull, threads_begin = 0ull, threads_end = 0ull;
 DEFINE_SPINLOCK(index_lock);
 
@@ -35,11 +34,9 @@ static int sbarrier(void) {
     if (atomic_dec_and_test(&start_guard)) {
         barrier_state++;
         if (barrier_state == 1) {
-            // clock_gettime(CLOCK_MONOTONIC, &threads_begin);
             pr_info("threads_begin!\n");
             threads_begin = ktime_get();
         } else if (barrier_state == 2) {
-            // clock_gettime(CLOCK_MONOTONIC, &threads_end);
             pr_info("threads_end!\n");
             threads_end = ktime_get();
         }
@@ -47,7 +44,8 @@ static int sbarrier(void) {
     } else {
         while (atomic_read(&start_guard) != num_threads) {}
     }
-    // pr_info("pass barrier!\n");
+
+    //
     if (atomic_add_return(1, &end_guard) == num_threads) {
         atomic_set(&end_guard, 0);
         pr_info("last threads\n");
@@ -60,22 +58,32 @@ static int sbarrier(void) {
 static void compute(int * counter) {
     int local_index , original;
     do {
+        // Critical region, accessing global index.
         spin_lock(&index_lock);
-        //find next prime
+        // Find next prime by finding the next number that is not
+        // crossed out.
         for (; global_index <= upper_bound; ++global_index) {
             if (atomic_read(numbers+global_index) != 0) break;
         }
-        local_index = global_index++;
+        // Store the next prime in a local variable and increment the
+        // global counter.
+        original = global_index++;
         spin_unlock(&index_lock);
-        // pr_info("%d\n", local_index);
-        if (local_index <= upper_bound) {
-            for (original = local_index, local_index += original; local_index <= upper_bound; local_index += original) {
-                atomic_set(numbers+local_index, 0);
+        
+        // Check if the prime has surpassed the upper bound.
+        if (original <= upper_bound) {
+            // Local work to cross out all multiples of original.
+            for (local_index = MIN_PRIME*original ; local_index <= upper_bound; local_index += original) {
+                // Cross out number.
+                numbers[local_index] = 0;
+                // Increment counter.
                 (*counter)++;
             }
         }
     } while (global_index <= upper_bound);
-    pr_info("finish computing\n");
+    
+    // Log finish computing
+    pr_info("Finish computing.\n");
 }
 
 static int sieve_fn(void* data) {
@@ -94,7 +102,6 @@ static int lab2_init(void) {
         printk(KERN_ERR "invalid parameter num_threads {%lu} should be at least 1 and upper_bound {%lu} should be at least 2.\n", num_threads, upper_bound);
         return -1;
     }
-    // clock_gettime(CLOCK_MONOTONIC, &init_begin);
     init_begin = ktime_get();
 
     numbers = (atomic_t*)kmalloc(sizeof(atomic_t) * (upper_bound+1), GFP_KERNEL);
@@ -114,7 +121,6 @@ static int lab2_init(void) {
 
     for (i = 0; i <= upper_bound; ++i) {
         atomic_set(numbers+i, i);
-        // numbers[i] = i;
     }
 
     atomic_set(&end_guard, 0);
@@ -122,8 +128,7 @@ static int lab2_init(void) {
 
     begin_flag = RUNNING;
     for (i = 0; i < num_threads; ++i) {
-        // kthread_create(&sieve_fn, (void *)(counters+i), "lab2_thread{%2d}", i);
-        //TODO wake up those threads
+        // Spawn worker threads, assign counters.
         kthread_run(&sieve_fn, (void *)(counters+i), "lab2_thread{%2d}", i);
     }
 
@@ -133,8 +138,6 @@ static int lab2_init(void) {
 static void lab2_exit(void) {
     int i, j, count_sum, prime_nums, non_prime_nums;
     struct timespec retval;
-    // long nsec;
-    // long long sec;
     if (begin_flag == RUNNING) {
         pr_err("threads are still working.");
         return;
@@ -177,18 +180,8 @@ static void lab2_exit(void) {
             non_prime_nums = upper_bound - 1 - prime_nums;
             printk (KERN_INFO "total number of primes: %d, non-primes: %d, unnecessary cross out: %d", prime_nums, non_prime_nums, count_sum - non_prime_nums);
             printk (KERN_INFO "upper bounds: %lu, number of threads: %lu", upper_bound, num_threads);
-            // nsec = threads_begin.tv_nsec - init_begin.tv_nsec;
-            // sec = threads_begin.tv_sec - init_begin.tv_sec;
-            // if (nsec < 1) {
-            //     sec -= 1;
-            // }
             retval = ktime_to_timespec(ktime_sub(threads_begin, init_begin));
             printk (KERN_INFO "time spent for setting up module: %ld.%.9ld\n", retval.tv_sec, retval.tv_nsec);
-            // nsec = threads_end.tv_nsec - threads_begin.tv_nsec;
-            // sec = threads_end.tv_sec - threads_begin.tv_sec;
-            // if (nsec < 1) {
-            //     sec -= 1;
-            // }
             retval = ktime_to_timespec(ktime_sub(threads_end, threads_begin));
             printk (KERN_INFO "time spent for processing primes: %ld.%.9ld\n", retval.tv_sec, retval.tv_nsec);
         }
