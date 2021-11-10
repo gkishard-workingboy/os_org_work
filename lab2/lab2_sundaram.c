@@ -11,6 +11,7 @@
 #define LINE_WIDTH 8
 #define MIN_THREADS 1
 #define MIN_PRIME 2
+#define MIN_NUM 1
 #define RUNNING 1
 
 static unsigned long num_threads = 1;
@@ -20,11 +21,13 @@ module_param (num_threads, ulong, 0644);
 module_param (upper_bound, ulong, 0644);
 
 static int *counters = 0;
-static atomic_t *numbers = 0;
-static volatile int global_index = MIN_PRIME;
+static int *numbers = 0;
+// Stores the current j.
+static volatile int global_index = MIN_NUM;
 static volatile int barrier_state = 0;
 static volatile int begin_flag = 0;
 static atomic_t start_guard, end_guard;
+// Used to measure the thread performance.
 static ktime_t init_begin = 0ull, threads_begin = 0ull, threads_end = 0ull;
 DEFINE_SPINLOCK(index_lock);
 
@@ -35,16 +38,17 @@ static int sbarrier(void) {
     if (atomic_dec_and_test(&start_guard)) {
         barrier_state++;
         if (barrier_state == 1) {
-            pr_info("threads_begin!\n");
             threads_begin = ktime_get();
+            pr_info("threads_begin!\n");
         } else if (barrier_state == 2) {
-            pr_info("threads_end!\n");
             threads_end = ktime_get();
+            pr_info("threads_end!\n");
         }
         atomic_set(&start_guard, num_threads);
     } else {
         while (atomic_read(&start_guard) != num_threads) {}
     }
+
     if (atomic_add_return(1, &end_guard) == num_threads) {
         atomic_set(&end_guard, 0);
         pr_info("last threads\n");
@@ -55,34 +59,33 @@ static int sbarrier(void) {
 }
 
 static void compute(int * counter) {
-    int local_index , original;
+    int i, j, index;
+    
     do {
         // Critical region, accessing global index.
         spin_lock(&index_lock);
-        // Find next prime by finding the next number that is not
-        // crossed out.
-        for (; global_index <= upper_bound; ++global_index) {
-            if (atomic_read(numbers+global_index) != 0) break;
-        }
-        // Store the next prime in a local variable and increment the
-        // global counter.
-        original = global_index++;
+        // Increment global j counter
+        j = global_index++;
         spin_unlock(&index_lock);
-        
-        // Check if the prime has surpassed the upper bound.
-        if (original <= upper_bound) {
-            // Local work to cross out all multiples of original.
-            for (local_index = MIN_PRIME*original ; local_index <= upper_bound; local_index += original) {
+
+        for (i = MIN_NUM; i <= j; ++i) {
+            // Compute i+j+2ij;
+            index = i + j + 2*i*j;
+            // Check if the base has surpassed the upper bound.
+            if (index <= upper_bound) {
                 // Cross out number.
-                atomic_set(numbers+local_index, 0);
+                numbers[index] = 0;
                 // Increment counter.
                 (*counter)++;
+            }
+            else {
+                // Already too large.
+                break;
             }
         }
     } while (global_index <= upper_bound);
     
-    // Log finish computing
-    pr_info("Finish computing.\n");
+    pr_info("Finished computing.\n");
 }
 
 static int sieve_fn(void* data) {
@@ -98,20 +101,22 @@ static int sieve_fn(void* data) {
 static int lab2_init(void) {
     int i;
     if (num_threads < MIN_THREADS || upper_bound < MIN_PRIME) {
-        printk(KERN_ERR "invalid parameter num_threads {%lu} should be at least 1 and upper_bound {%lu} should be at least 2.\n", num_threads, upper_bound);
+        printk(KERN_ERR "Invalid parameter, num_threads {%lu} should be at least 1 and upper_bound {%lu} should be at least 2.\n", num_threads, upper_bound);
         return -1;
     }
     init_begin = ktime_get();
 
-    numbers = (atomic_t*)kmalloc(sizeof(atomic_t) * (upper_bound+1), GFP_KERNEL);
+    // Allocate numbers
+    numbers = (int*)kmalloc(sizeof(int) * (upper_bound+1), GFP_KERNEL);
     if (numbers == NULL) {
-        printk(KERN_ERR "kmalloc numbers fail.\n");
+        printk(KERN_ERR "Failed to kmalloc numbers.\n");
         return -1;
     }
 
+    // Allocate counters
     counters = (int*)kmalloc(sizeof(int) * num_threads, GFP_KERNEL);
     if (counters == NULL) {
-        printk(KERN_ERR "kmalloc counters fail.\n");
+        printk(KERN_ERR "Failed kmalloc counters.\n");
     }
 
     for (i = 0; i < num_threads; ++i) {
@@ -119,15 +124,16 @@ static int lab2_init(void) {
     }
 
     for (i = 0; i <= upper_bound; ++i) {
-        atomic_set(numbers+i, i);
+        numbers[i] = i;
     }
 
+    // Set up the guards
     atomic_set(&end_guard, 0);
     atomic_set(&start_guard, num_threads);
 
     begin_flag = RUNNING;
     for (i = 0; i < num_threads; ++i) {
-        // Spawn worker threads, assign counters.
+        // Run worker threads and pass in the corresponding counters.
         kthread_run(&sieve_fn, (void *)(counters+i), "lab2_thread{%2d}", i);
     }
 
@@ -136,35 +142,41 @@ static int lab2_init(void) {
 
 static void lab2_exit(void) {
     int i, j, count_sum, prime_nums, non_prime_nums;
+    int cal_num;
     struct timespec retval;
     if (begin_flag == RUNNING) {
         pr_err("threads are still working.");
         return;
     }
+    // Check if numbers is null.
     if (numbers != NULL) {
         if (barrier_state > 0) {
-            printk(KERN_INFO "prime numbers:");
+            printk(KERN_INFO "Prime number(s):");
             j = LINE_WIDTH-1;
             prime_nums = 0;
-            for (i = MIN_PRIME; i <= upper_bound; ++i) {
-                if (atomic_read(numbers+i) != 0) {
+            for (i = MIN_NUM; i <= upper_bound; ++i) {
+                if (numbers[i] != 0) {
                     prime_nums++;
+                    // Prime number is of the form the 2k+1.
+                    cal_num = 2 * numbers[i] + 1;
                     if (++j == LINE_WIDTH) {
-                        printk (KERN_INFO "%5d", atomic_read(numbers+i));
+                        printk (KERN_INFO "%5d", cal_num);
                         j = 0;
                     } else {
-                        printk (KERN_CONT " %5d", atomic_read(numbers+i));
+                        printk (KERN_CONT " %5d", cal_num);
                     }
                 }
             }
         }
+        // Free the numbers array.
         kfree(numbers);
         numbers = NULL;
     }
 
+    // Check if counters is null.
     if (counters != NULL) {
         if (barrier_state > 0) {
-            printk(KERN_INFO "counters:");
+            printk(KERN_INFO "Counter(s):");
             j = LINE_WIDTH-1;
             count_sum = 0;
             for (i = 0; i < num_threads; ++i) {
@@ -184,6 +196,7 @@ static void lab2_exit(void) {
             retval = ktime_to_timespec(ktime_sub(threads_end, threads_begin));
             printk (KERN_INFO "time spent for processing primes: %ld.%.9ld\n", retval.tv_sec, retval.tv_nsec);
         }
+        // Free the counters array.
         kfree(counters);
         counters = NULL;
     }
@@ -194,5 +207,5 @@ module_init(lab2_init);
 module_exit(lab2_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Zhikuan Wei");
-MODULE_DESCRIPTION("atomic version");
+MODULE_AUTHOR("Zhikuan Wei; Jordan Sun");
+MODULE_DESCRIPTION("for lab 2");

@@ -11,6 +11,7 @@
 #define LINE_WIDTH 8
 #define MIN_THREADS 1
 #define MIN_PRIME 2
+#define MIN_NUM 1
 #define RUNNING 1
 
 static unsigned long num_threads = 1;
@@ -21,7 +22,7 @@ module_param (upper_bound, ulong, 0644);
 
 static int *counters = 0;
 static atomic_t *numbers = 0;
-static volatile int global_index = MIN_PRIME;
+static volatile int global_index = MIN_NUM;
 static volatile int barrier_state = 0;
 static volatile int begin_flag = 0;
 static atomic_t start_guard, end_guard;
@@ -55,28 +56,28 @@ static int sbarrier(void) {
 }
 
 static void compute(int * counter) {
-    int local_index , original;
+    int i, j, index;
+    
     do {
         // Critical region, accessing global index.
         spin_lock(&index_lock);
-        // Find next prime by finding the next number that is not
-        // crossed out.
-        for (; global_index <= upper_bound; ++global_index) {
-            if (atomic_read(numbers+global_index) != 0) break;
-        }
-        // Store the next prime in a local variable and increment the
-        // global counter.
-        original = global_index++;
+        // Increment global j counter
+        j = global_index++;
         spin_unlock(&index_lock);
-        
-        // Check if the prime has surpassed the upper bound.
-        if (original <= upper_bound) {
-            // Local work to cross out all multiples of original.
-            for (local_index = MIN_PRIME*original ; local_index <= upper_bound; local_index += original) {
+
+        for (i = MIN_NUM; i <= j; ++i) {
+            // Compute i+j+2ij;
+            index = i + j + 2*i*j;
+            // Check if the base has surpassed the upper bound.
+            if (index <= upper_bound) {
                 // Cross out number.
-                atomic_set(numbers+local_index, 0);
+                atomic_set(numbers+index, 0);
                 // Increment counter.
                 (*counter)++;
+            }
+            else {
+                // Already too large.
+                break;
             }
         }
     } while (global_index <= upper_bound);
@@ -136,6 +137,7 @@ static int lab2_init(void) {
 
 static void lab2_exit(void) {
     int i, j, count_sum, prime_nums, non_prime_nums;
+    int cal_num;
     struct timespec retval;
     if (begin_flag == RUNNING) {
         pr_err("threads are still working.");
@@ -146,14 +148,18 @@ static void lab2_exit(void) {
             printk(KERN_INFO "prime numbers:");
             j = LINE_WIDTH-1;
             prime_nums = 0;
-            for (i = MIN_PRIME; i <= upper_bound; ++i) {
-                if (atomic_read(numbers+i) != 0) {
+            for (i = MIN_NUM; i <= upper_bound; ++i) {
+                // Atomically read numbers[i] and store locally.
+                cal_num = atomic_read(numbers+i);
+                if (cal_num != 0) {
                     prime_nums++;
+                    // Prime number is of the form the 2k+1.
+                    cal_num = 2 * cal_num + 1;
                     if (++j == LINE_WIDTH) {
-                        printk (KERN_INFO "%5d", atomic_read(numbers+i));
+                        printk (KERN_INFO "%5d", cal_num);
                         j = 0;
                     } else {
-                        printk (KERN_CONT " %5d", atomic_read(numbers+i));
+                        printk (KERN_CONT " %5d", cal_num);
                     }
                 }
             }
