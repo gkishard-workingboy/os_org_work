@@ -142,7 +142,7 @@ static int lab2_init(void) {
 
 static void lab2_exit(void) {
     int i, j, count_sum, prime_nums, non_prime_nums;
-    int cal_num;
+    int best_count, cal_num;
     struct timespec retval;
     if (begin_flag == RUNNING) {
         pr_err("threads are still working.");
@@ -151,9 +151,9 @@ static void lab2_exit(void) {
     // Check if numbers is null.
     if (numbers != NULL) {
         if (barrier_state > 0) {
-            printk(KERN_INFO "Prime number(s):");
+            printk(KERN_INFO "odd prime number(s):");
             j = LINE_WIDTH-1;
-            prime_nums = 0;
+            prime_nums = 1; // Account for 2.
             for (i = MIN_NUM; i <= upper_bound; ++i) {
                 if (numbers[i] != 0) {
                     prime_nums++;
@@ -188,8 +188,9 @@ static void lab2_exit(void) {
                     printk (KERN_CONT " %5d", counters[i]);
                 }
             } 
-            non_prime_nums = upper_bound - 1 - prime_nums;
-            printk (KERN_INFO "total number of primes: %d, non-primes: %d, unnecessary cross out: %d", prime_nums, non_prime_nums, count_sum - non_prime_nums);
+            best_count = upper_bound - prime_nums;
+            non_prime_nums = 2 * upper_bound - prime_nums;
+            printk (KERN_INFO "total number of primes: %d, non-primes: %d, unnecessary cross out: %d", prime_nums, non_prime_nums, count_sum - best_count);
             printk (KERN_INFO "upper bounds: %lu, number of threads: %lu", upper_bound, num_threads);
             retval = ktime_to_timespec(ktime_sub(threads_begin, init_begin));
             printk (KERN_INFO "time spent for setting up module: %ld.%.9ld\n", retval.tv_sec, retval.tv_nsec);
