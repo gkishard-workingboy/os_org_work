@@ -183,8 +183,10 @@ static void lab2_exit(void) {
                 }
             } 
             best_count = upper_bound - prime_nums;
-            non_prime_nums = 2 * upper_bound - prime_nums;
-            printk (KERN_INFO "total number of primes: %d, non-primes: %d, unnecessary cross out: %d", prime_nums, non_prime_nums, count_sum - best_count);
+            non_prime_nums = 2 * upper_bound + 1 - prime_nums;
+            printk (KERN_INFO "total number of primes: %d\n", prime_nums);
+            printk (KERN_INFO "non-primes: %d\n", non_prime_nums);
+            printk (KERN_INFO "unnecessary cross out: %d\n", count_sum - best_count);
             printk (KERN_INFO "upper bounds: %lu, number of threads: %lu", upper_bound, num_threads);
             retval = ktime_to_timespec(ktime_sub(threads_begin, init_begin));
             printk (KERN_INFO "time spent for setting up module: %ld.%.9ld\n", retval.tv_sec, retval.tv_nsec);
