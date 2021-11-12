@@ -63,6 +63,12 @@ lab2_sundaram.c
 lab2_sundaram_atomic.c
 // records the performance of Sundaram seive programs
 sundaram_performance.xlsx
+// plot of the sundaram program performance
+lab2sundaram.png
+// plot of the atomic sundaram program performance
+lab2sundaramatomic.png
+// the shell script to record the performance of programs
+test.sh
 
 ## Extra Credit
 To implement Sieve of Sundaram, we mainly modified the compute function.
@@ -79,13 +85,13 @@ number, 2. The total number of non-prime number is 2*upperbound + 1 - number of 
 of unnecessary cross outs.
 
 We have respectively test the performance of two module in 1, 2 and 4 threads with upper_bound as 100, 200, 500, 1000, 2000, 4000, 8000,
-10000, 20000 and 100000.
+10000, 20000 and 100000. The output is stored in sundaram_performance.xlsx, and plot in lab2sundaram.png and lab2sundaramatomic.png.
 
 We notice that by implementing Sieve of Sundaram, the number of unnecessary cross out reduces significantly as compared to using sieve of
-Eratosthenes.
-
+Eratosthenes. However, Sieve of Sundaram is noticeably slower than Sieve of Eratosthenes as it need to compute the index given i and j, 
+even if we divide the runtime by 2 to account for the fact that it covers twice as much numbers.
 
 ## Development Effort
 Zhikuan Wei spend nearly 14 hours on this project, completing `lab2.c` and `lab2_atomic.c`. 
-Zhuoran Sun spend over 6 hours working on this project, completing `lab2_sundaram.c` and `lab2_sundaram_atomic.c`. 
+Zhuoran Sun spend over 8 hours working on this project, completing `lab2_sundaram.c`, `lab2_sundaram_atomic.c` and `test.sh`. 
 
