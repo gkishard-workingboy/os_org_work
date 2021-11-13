@@ -1,0 +1,5 @@
+# test shell script output files
+*.csv
+
+# kernel objects
+*.ko
