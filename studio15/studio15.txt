@@ -1,0 +1,88 @@
+1.
+Zhikuan Wei
+Jordan Sun
+
+
+2.
+pi@wzkpi:~/Documents/studio15 $ ./pipe 
+read from pipe: this message comes from the child process
+
+
+3.
+I just execute my program, and the program keeps looping, and waiting for the 
+input. I open another terminal to type echo "hi fifo~" > my_fifo, then the original
+\terminal outputs what I typed.
+
+pi@wzkpi:~/Documents/studio15 $ echo "hi fifo~" > my_fifo
+pi@wzkpi:~/Documents/studio15 $ ./fifo 
+hi fifo~
+
+
+4.
+I start two program respectively, then I can see the change of origin number 
+from the output of the reader.
+
+pi@wzkpi:~/Documents/studio15 $ echo 15 > my_fifo
+pi@wzkpi:~/Documents/studio15 $ ./fifo 
+origin:15 doubled:30
+
+pi@wzkpi:~/Documents/studio15 $ ./writer 0
+Start: 0
+pi@wzkpi:~/Documents/studio15 $ ./writer 1
+Start: 1
+
+origin:311913 doubled:623826
+origin:311915 doubled:623830
+origin:311917 doubled:623834
+origin:311919 doubled:623838
+origin:311921 doubled:623842
+origin:311923 doubled:623846
+origin:311925 doubled:623850
+...
+origin:132886 doubled:265772
+origin:132888 doubled:265776
+origin:132890 doubled:265780
+origin:132892 doubled:265784
+...
+
+5.
+I start reader and file writer program in order, and once I run the file writer
+program, the previous reader program just output the content of that specified file.
+
+
+pi@wzkpi:~/Documents/studio15 $ ./fwr fifo.c
+pi@wzkpi:~/Documents/studio15 $ ./fifo 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <stdio.h>
+#include <unistd.h>
+#include "test_fifo.h"
+
+int main(void) {
+    FILE *freader, *fwriter;
+    char buf[MAX_LENGTH];
+    int result;
+    char *fifoname = FIFO_NAME;
+    mkfifo(fifoname, S_IRUSR | S_IWUSR);
+
+    freader = fopen(fifoname, "r");
+    fwriter = fopen(fifoname, "w");
+
+    //section 3
+    // while (fgets(buf, MAX_LENGTH, freader) != NULL) {
+    //     printf("%s", buf);
+    // }
+
+    //section 4
+    // while (fscanf(freader, "%d", &result) != EOF) {
+    //     printf("origin:%d doubled:%d\n", result, 2*result);
+    // }
+
+    //section 5
+    while (fgets(buf, MAX_LENGTH, freader) != NULL) {
+        printf("%s", buf);
+    }
+    
+    return 0;
+
+
