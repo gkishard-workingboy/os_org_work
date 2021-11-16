@@ -83,4 +83,17 @@ pi@jordansunpi:~/Documents/CSE422S/lab2/operating_system_organization/Studio14 $
 5 World
 ```
 
+## Q7:
+```
+pi@jordansunpi:~/Documents/CSE422S/lab2/operating_system_organization/Studio14 $ ./studio14_reader TestFormatted 
+Hello
+World
+Life
+Goodbye
+World
+pi@jordansunpi:~/Documents/CSE422S/lab2/operating_system_organization/Studio14 $ ./studio14_reader
+usage: ./studio14_reader file_name
+pi@jordansunpi:~/Documents/CSE422S/lab2/operating_system_organization/Studio14 $ ./studio14_reader TestFile
+error: ill formatted line, unknown length W.
+```
 
