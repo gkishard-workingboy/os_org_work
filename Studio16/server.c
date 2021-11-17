@@ -1,5 +1,5 @@
 // declarations
-#include "client.h"
+#include "server.h"
 // utils
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,49 +22,60 @@ int main(int argc, char* argv[])
 	/// ref: man unix
 	
 	// stores the file descriptor for the sockets.
-	unsigned int data_socket;
+	unsigned int connection_socket, data_socket;
 	// stores the unix domain socket address.
 	struct sockaddr_un name;
 	// stores the return value of system calls.
 	int ret;
 	// stores a file pointer to the socket.
 	FILE * data_fp;
-	// stores the data and converted data to send.
+	// stores the data read.
 	unsigned int data;
 	
 	// unlink the socket in case of previous exceptions.
 	unlink(SOCKET_NAME);
 	
 	// create a socket for local connection.
-	data_socket = socket(AF_LOCAL, SOCK_STREAM, SOCKET_PROTOCAL);
+	connection_socket = socket(AF_LOCAL, SOCK_STREAM, SOCKET_PROTOCAL);
 	// on error, -1 is returned.
-	if (data_socket < SUCCESS) return err_handler(ERR_SOCKET);
+	if (connection_socket < SUCCESS) return err_handler(ERR_SOCKET);
 	
-	// connect to the communications channel.
+	// create the communications channel.
 	memset(&name, 0, sizeof(struct sockaddr_un));
 	name.sun_family = AF_LOCAL;
     strncpy(name.sun_path, SOCKET_NAME, sizeof(name.sun_path) - 1);
-	ret = connect(data_socket, (const struct sockaddr *) &name,
+	ret = bind(connection_socket, (const struct sockaddr *) &name,
                       sizeof(struct sockaddr_un));
 	// on error, -1 is returned.
-	if (ret < SUCCESS) return err_handler(ERR_CONNECT);
+	if (ret < SUCCESS) return err_handler(ERR_BIND);
+	
+	// start listening on connection socket.
+	ret = listen(connection_socket, SOCKET_BACKLOG_SIZE);
+	// on error, -1 is returned.
+	if (ret < SUCCESS) return err_handler(ERR_LISTEN);
+	
+	// start listening on connection socket.
+	data_socket = accept(connection_socket, NULL, NULL);
+	// on error, -1 is returned.
+	if (data_socket < SUCCESS) return err_handler(ERR_ACCEPT);
 	
 	// connected, open socket.
 	data_fp = fdopen(data_socket, "r");
 	// on error, NULL is returned.
 	if (data_fp == NULL) return err_handler(ERR_OPEN);
 	
-	// send data.
-	for (data = 0; data < DATA_MAX; ++data)
-	{
-		ret = fprintf(data_fp, "%u", data);
-		if (ret < SUCCESS) return err_handler(ERR_SEND);
+	// read data from the socket.
+	while (fscanf(data_fp, "%u", &data) > SUCCESS) {
+		// read successful, print out data.
+		printf("%u\n", data);
 	}
 	
 	// read completed or failed.
 	fclose(data_fp);
-    // close and unlink the data socket.
-    close(data_socket);
+	// close the data socket.
+	close(data_socket);
+    // close and unlink the connection socket.
+    close(connection_socket);
     unlink(SOCKET_NAME);
 
 	// successful execution
