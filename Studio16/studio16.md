@@ -1911,3 +1911,7 @@ Closing data socket 3.
 ```
 
 ## Q6:
+I used ntohl and htonl because they convert long integers into network order.
+
+## Q7:
+

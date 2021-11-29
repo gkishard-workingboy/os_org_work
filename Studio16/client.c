@@ -50,7 +50,7 @@ int main(int argc, char* argv[])
 	// stores a file pointer to the socket.
 	FILE * data_fp;
 	// stores the data and converted data to send.
-	unsigned int data;
+	unsigned int data, int_data;
 	
 	// stores the host name and service name.
     char host_name[NI_MAXHOST], service_name[NI_MAXSERV];
@@ -84,16 +84,18 @@ int main(int argc, char* argv[])
 	if (data_fp == NULL) return err_handler(ERR_OPEN);
 	
 	// send data.
-	for (data = 0; data < DATA_MAX; ++data)
+	for (int_data = 0; int_data < DATA_MAX; ++int_data)
 	{
+		data = htonl(int_data);
 		ret = fprintf(data_fp, "%u\n", data);
 		if (ret < SUCCESS) return err_handler(ERR_SEND);
-		printf("Data sent: %u\n", data);
+		printf("Data sent: %u\n", int_data);
 	}
 	
 	// send end.
 	if (quit) {
-		ret = fprintf(data_fp, "%u\n", END_CODE);
+		data = htonl(END_CODE);
+		ret = fprintf(data_fp, "%u\n", data);
 		if (ret < SUCCESS) return err_handler(ERR_SEND);
 		printf("End sent: %u\n", END_CODE);
 	}

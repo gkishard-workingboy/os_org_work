@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
 	// stores a file pointer to the socket.
 	FILE * data_fp;
 	// stores the data read.
-	unsigned int data;
+	unsigned int data, int_data;
 	
 	// stores the own host name.
 	char server_host_name[NI_MAXHOST];
@@ -99,16 +99,17 @@ int main(int argc, char* argv[])
 		ret = fscanf(data_fp, "%u", &data);
 		while (ret >= SUCCESS)
 		{
-			if (data == END_CODE) {
+			int_data = ntohl(data);
+			if (int_data == END_CODE) {
 				// read successful, print out data.
-				printf("End received: %u\n", data);
+				printf("End received: %u\n", int_data);
 				// ending.
 				end = 1;
 				break;
 			}
 			else {
 				// read successful, print out data.
-				printf("Data received: %u\n", data);
+				printf("Data received: %u\n", int_data);
 				// read data from the socket.
 				ret = fscanf(data_fp, "%u", &data);
 			}
