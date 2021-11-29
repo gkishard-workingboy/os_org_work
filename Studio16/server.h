@@ -4,7 +4,8 @@
 // socket configs
 #define SOCKET_PROTOCAL 0
 #define SOCKET_NAME "/tmp/studio16.socket"
-#define SOCKET_BACKLOG_SIZE 1
+#define SOCKET_BACKLOG_SIZE 10
+#define END_CODE 418
 
 /// error codes
 enum err_code_t

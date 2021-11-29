@@ -5,11 +5,20 @@
 #define SOCKET_PROTOCAL 0
 #define SOCKET_NAME "/tmp/studio16.socket"
 #define DATA_MAX 100
+#define END_ARG "quit"
+#define END_CODE 418
+
+/// arguments
+enum arguments_t {
+	PROGRAM_NAME,
+	ADDITIONAL_ARGUMENT,
+	MAXIMUM_ARGC,
+};
 
 /// error codes
-enum err_code_t
-{
+enum err_code_t {
 	SUCCESS,
+	ERR_ARG,
 	ERR_SOCKET,
 	ERR_CONNECT,
 	ERR_SEND,
@@ -20,6 +29,7 @@ enum err_code_t
 static const char* err_desc[] =
 {
 	"Success",
+	"Unexpected number of arguments",
 	"Failed to create data socket",
 	"Failed to connect socket",
 	"Failed to write to socket",
