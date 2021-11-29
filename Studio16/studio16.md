@@ -1914,4 +1914,9 @@ Closing data socket 3.
 I used ntohl and htonl because they convert long integers into network order.
 
 ## Q7:
-
+Short read/write format: `{SHORT data}`  
+where SHORT is the code 200  
+Batch read/write format: `{BATCH len data[len]}`  
+where BATCH is the code 201  
+Brew coffee with a teapot format: `{END}`  
+where END is the code 418    

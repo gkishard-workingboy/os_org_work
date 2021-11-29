@@ -7,6 +7,9 @@
 #define DATA_MAX 100
 #define END_ARG "quit"
 #define END_CODE 418
+#define SHORT_ARG "short"
+#define SHORT_CODE 200
+#define BATCH_CODE 201
 
 /// arguments
 enum arguments_t {
