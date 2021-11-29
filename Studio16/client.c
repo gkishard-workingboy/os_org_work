@@ -14,6 +14,7 @@
 // for remote
 #include <netinet/ip.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
 const char* SHELL_IP = "128.252.167.161";
 const unsigned int PORT_NUM = 32768;
@@ -42,7 +43,7 @@ int main(int argc, char* argv[])
 	
 	// stores the file descriptor for the sockets.
 	unsigned int data_socket;
-	// stores the internet domain socket address.
+	// stores the internet domain socket address used.
 	struct sockaddr_in name;
 	// stores the return value of system calls.
 	int ret;
@@ -50,6 +51,9 @@ int main(int argc, char* argv[])
 	FILE * data_fp;
 	// stores the data and converted data to send.
 	unsigned int data;
+	
+	// stores the host name and service name.
+    char host_name[NI_MAXHOST], service_name[NI_MAXSERV];
 	
 	// create a socket for local connection.
 	data_socket = socket(AF_INET, SOCK_STREAM, SOCKET_PROTOCAL);
@@ -67,6 +71,12 @@ int main(int argc, char* argv[])
 	// on error, -1 is returned.
 	if (ret < SUCCESS) return err_handler(ERR_CONNECT);
 	printf("Connected data socket %u.\n", data_socket);
+	
+	// connected, get name info
+	ret = getnameinfo((const struct sockaddr *) &name, sizeof(name), host_name, sizeof(host_name), service_name, sizeof(service_name), NI_NUMERICHOST|NI_NUMERICSERV);
+	// on error, -1 is returned.
+	if (ret < SUCCESS) return err_handler(ERR_HOST_NAME);
+	printf("Connected to %s on port %s,", host_name, service_name);
 	
 	// connected, open socket.
 	data_fp = fdopen(data_socket, "w");

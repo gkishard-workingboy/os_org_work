@@ -19,6 +19,7 @@ enum arguments_t {
 enum err_code_t {
 	SUCCESS,
 	ERR_ARG,
+	ERR_HOST_NAME,
 	ERR_SOCKET,
 	ERR_CONNECT,
 	ERR_SEND,
@@ -30,6 +31,7 @@ static const char* err_desc[] =
 {
 	"Success",
 	"Unexpected number of arguments",
+	"Failed to get host name",
 	"Failed to create data socket",
 	"Failed to connect socket",
 	"Failed to write to socket",

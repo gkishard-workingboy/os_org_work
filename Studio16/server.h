@@ -11,6 +11,7 @@
 enum err_code_t
 {
 	SUCCESS,
+	ERR_HOST_NAME,
 	ERR_SOCKET,
 	ERR_BIND,
 	ERR_LISTEN,
@@ -22,6 +23,7 @@ enum err_code_t
 static const char* err_desc[] =
 {
 	"Success",
+	"Failed to get host name",
 	"Failed to create connection socket",
 	"Failed to bind socket",
 	"Failed to listen to socket",

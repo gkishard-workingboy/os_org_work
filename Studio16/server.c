@@ -14,6 +14,7 @@
 // for remote
 #include <netinet/ip.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
 const unsigned int PORT_NUM = 32768;
 
@@ -28,8 +29,11 @@ int main(int argc, char* argv[])
 	
 	// stores the file descriptor for the sockets.
 	unsigned int connection_socket, data_socket;
-	// stores the internet domain socket address.
+	// stores the internet domain socket address used.
 	struct sockaddr_in name;
+	// stores the internet domain socket address accepted.
+	struct sockaddr_in addr;
+	socklen_t addr_len;
 	// stores the return value of system calls.
 	int ret;
 	// stores a file pointer to the socket.
@@ -37,11 +41,22 @@ int main(int argc, char* argv[])
 	// stores the data read.
 	unsigned int data;
 	
+	// stores the own host name.
+	char server_host_name[NI_MAXHOST];
+	// stores the socket's host name and service name.
+	char host_name[NI_MAXHOST], service_name[NI_MAXSERV];
+	
 	// create a socket for local connection.
 	connection_socket = socket(AF_INET, SOCK_STREAM, SOCKET_PROTOCAL);
 	// on error, -1 is returned.
 	if (connection_socket < SUCCESS) return err_handler(ERR_SOCKET);
 	printf("Created connection socket %u.\n", connection_socket);
+	
+	// connected, get name info
+	ret = gethostname(server_host_name, sizeof(server_host_name));
+	// on error, -1 is returned.
+	if (ret < SUCCESS) return err_handler(ERR_HOST_NAME);
+	printf("Hosting on %s.\n", server_host_name);
 	
 	// create the communications channel.
 	memset(&name, 0, sizeof(struct sockaddr_in));
@@ -63,12 +78,19 @@ int main(int argc, char* argv[])
 	int end = 0;
 	while (!end) {
 		// accept data socket.
-		data_socket = accept(connection_socket, NULL, NULL);
+		addr_len = sizeof(addr);
+		data_socket = accept(connection_socket,(struct sockaddr *) &addr, &addr_len);
 		// on error, -1 is returned.
 		if (data_socket < SUCCESS) return err_handler(ERR_ACCEPT);
 		printf("Accepted data socket %u.\n", data_socket);
+	
+		// connected, get name info
+		ret = getnameinfo((const struct sockaddr *) &addr, addr_len, host_name, sizeof(host_name), service_name, sizeof(service_name), NI_NUMERICHOST|NI_NUMERICSERV);
+		// on error, -1 is returned.
+		if (ret < SUCCESS) return err_handler(ERR_HOST_NAME);
+		printf("Connected to %s on port %s,", host_name, service_name);
 		
-		// connected, open socket.
+		// open socket.
 		data_fp = fdopen(data_socket, "r");
 		// on error, NULL is returned.
 		if (data_fp == NULL) return err_handler(ERR_OPEN);
