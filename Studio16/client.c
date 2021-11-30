@@ -1,7 +1,6 @@
 // declarations
 #include "client.h"
 // utils
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
@@ -24,18 +23,79 @@ int err_handler(int err) {
 	return err;
 }
 
+int send_int(FILE* fp, int int_data) {
+	int ret;
+	// data buffer
+	unsigned int data;
+	
+	data = htonl(int_data);
+	ret = fprintf(fp, "%u\n", data);
+	if (ret < SUCCESS) return ERR_SEND;
+	return SUCCESS;
+}
+
+int send_short(FILE* fp, int int_data) {
+	int ret;
+	
+	ret = send_int(fp, SHORT_CODE);
+	if (ret < SUCCESS) return ret;
+	printf("Code sent: %u\n", SHORT_CODE);
+	
+	ret = send_int(fp, int_data);
+	if (ret < SUCCESS) return ret;
+	printf("Data sent: %u\n", int_data);
+	
+	if (ret < SUCCESS) return ERR_SEND;
+	return SUCCESS;
+}
+
+int send_array(FILE* fp, int* array_data, int array_len) {
+	int ret;
+	
+	ret = send_int(fp, ARRAY_CODE);
+	if (ret < SUCCESS) return ret;
+	printf("Code sent: %u\n", ARRAY_CODE);
+	
+	ret = send_int(fp, array_len);
+	if (ret < SUCCESS) return ret;
+	printf("Length sent: %u\n", array_len);
+	
+	for (int index = 0; index < array_len; ++index) {
+		ret = send_int(fp, array_data[index]);
+		if (ret < SUCCESS) return ret;
+		printf("Data sent: %u\n", array_data[index]);
+	}
+	
+	if (ret < SUCCESS) return ERR_SEND;
+	return SUCCESS;
+}
+
+int send_end(FILE* fp) {	
+	int ret;
+	
+	ret = send_int(fp, END_CODE);
+	if (ret < SUCCESS) return ret;
+	printf("Code sent: %u\n", END_CODE);
+	return SUCCESS;
+}
+
 int main(int argc, char* argv[])
 {
-	int quit = 0;
+	int quit_flag, short_flag = 0;
+	int int_array[DATA_MAX];
 	// check argument counts
 	if (argc > MAXIMUM_ARGC) {
-		printf("usage: %s [quit]\n", argv[PROGRAM_NAME]);
+		printf("usage: %s [quit|short]\n", argv[PROGRAM_NAME]);
 		return ERR_ARG;
 	}
 	else if (argc == MAXIMUM_ARGC) {
 		// check if quit
 		if (strcmp(argv[ADDITIONAL_ARGUMENT], END_ARG) == 0) {
-			quit = 1;
+			quit_flag = 1;
+		}
+		// check if short
+		else if (strcmp(argv[ADDITIONAL_ARGUMENT], SHORT_ARG) == 0) {
+			short_flag = 1;
 		}
 	}
 	
@@ -50,7 +110,7 @@ int main(int argc, char* argv[])
 	// stores a file pointer to the socket.
 	FILE * data_fp;
 	// stores the data and converted data to send.
-	unsigned int data, int_data;
+	unsigned int int_data;
 	
 	// stores the host name and service name.
     char host_name[NI_MAXHOST], service_name[NI_MAXSERV];
@@ -76,7 +136,7 @@ int main(int argc, char* argv[])
 	ret = getnameinfo((const struct sockaddr *) &name, sizeof(name), host_name, sizeof(host_name), service_name, sizeof(service_name), NI_NUMERICHOST|NI_NUMERICSERV);
 	// on error, -1 is returned.
 	if (ret < SUCCESS) return err_handler(ERR_HOST_NAME);
-	printf("Connected to %s on port %s,", host_name, service_name);
+	printf("Connected to %s on port %s.\n", host_name, service_name);
 	
 	// connected, open socket.
 	data_fp = fdopen(data_socket, "w");
@@ -84,20 +144,26 @@ int main(int argc, char* argv[])
 	if (data_fp == NULL) return err_handler(ERR_OPEN);
 	
 	// send data.
-	for (int_data = 0; int_data < DATA_MAX; ++int_data)
-	{
-		data = htonl(int_data);
-		ret = fprintf(data_fp, "%u\n", data);
-		if (ret < SUCCESS) return err_handler(ERR_SEND);
-		printf("Data sent: %u\n", int_data);
+	if (short_flag) {
+		for (int_data = 0; int_data < DATA_MAX; ++int_data)
+		{
+			ret = send_short(data_fp, int_data);
+			if (ret < SUCCESS) return err_handler(ret);
+		}
+	}
+	else {
+		for (int_data = 0; int_data < DATA_MAX; ++int_data)
+		{
+			int_array[int_data] = int_data;
+		}
+		ret = send_array(data_fp, int_array, DATA_MAX);
+		if (ret < SUCCESS) return err_handler(ret);
 	}
 	
 	// send end.
-	if (quit) {
-		data = htonl(END_CODE);
-		ret = fprintf(data_fp, "%u\n", data);
-		if (ret < SUCCESS) return err_handler(ERR_SEND);
-		printf("End sent: %u\n", END_CODE);
+	if (quit_flag) {
+		ret = send_end(data_fp);
+		if (ret < SUCCESS) return err_handler(ret);
 	}
 	
 	// close the file.

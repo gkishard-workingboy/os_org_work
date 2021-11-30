@@ -23,6 +23,44 @@ int err_handler(int err) {
 	return err;
 }
 
+int recv_int(FILE* fp, int* int_data) {
+	int ret;
+	int data = 0;
+	ret = fscanf(fp, "%u", &data);
+	if (ret < SUCCESS) return ret;
+	*int_data = ntohl(data);
+	return SUCCESS;
+}
+
+int recv_socket(FILE* fp) {
+	int ret;
+	int int_data = 0;
+	int index, array_len;
+	ret = recv_int(fp, &int_data);
+	if (ret < SUCCESS) return ret;
+	if (int_data == END_CODE) {
+		printf("End received: %u\n", int_data);
+		return END_CODE;
+	} else if (int_data == SHORT_CODE) {
+		ret = recv_int(fp, &int_data);
+		if (ret < SUCCESS) return ret;
+		// read successful, print out data.
+		printf("Data received: %u\n", int_data);
+	} else if (int_data == ARRAY_CODE) {
+		ret = recv_int(fp, &array_len);
+		if (ret < SUCCESS) return ret;
+		// read successful, print out length.
+		printf("Length received: %u\n", array_len);
+		for (index = 0; index < array_len; ++index) {
+			ret = recv_int(fp, &int_data);
+			if (ret < SUCCESS) return ret;
+			// read successful, print out data.
+			printf("Data received: %u\n", int_data);
+		}
+	}
+	return SUCCESS;
+}
+
 int main(int argc, char* argv[])
 {
 	/// ref: man unix
@@ -38,8 +76,6 @@ int main(int argc, char* argv[])
 	int ret;
 	// stores a file pointer to the socket.
 	FILE * data_fp;
-	// stores the data read.
-	unsigned int data, int_data;
 	
 	// stores the own host name.
 	char server_host_name[NI_MAXHOST];
@@ -88,7 +124,7 @@ int main(int argc, char* argv[])
 		ret = getnameinfo((const struct sockaddr *) &addr, addr_len, host_name, sizeof(host_name), service_name, sizeof(service_name), NI_NUMERICHOST|NI_NUMERICSERV);
 		// on error, -1 is returned.
 		if (ret < SUCCESS) return err_handler(ERR_HOST_NAME);
-		printf("Connected to %s on port %s,", host_name, service_name);
+		printf("Connected to %s on port %s.\n", host_name, service_name);
 		
 		// open socket.
 		data_fp = fdopen(data_socket, "r");
@@ -96,22 +132,12 @@ int main(int argc, char* argv[])
 		if (data_fp == NULL) return err_handler(ERR_OPEN);
 		
 		// read data from the socket.
-		ret = fscanf(data_fp, "%u", &data);
+		ret = SUCCESS;
 		while (ret >= SUCCESS)
 		{
-			int_data = ntohl(data);
-			if (int_data == END_CODE) {
-				// read successful, print out data.
-				printf("End received: %u\n", int_data);
-				// ending.
+			ret = recv_socket(data_fp);
+			if (ret == END_CODE) {
 				end = 1;
-				break;
-			}
-			else {
-				// read successful, print out data.
-				printf("Data received: %u\n", int_data);
-				// read data from the socket.
-				ret = fscanf(data_fp, "%u", &data);
 			}
 		}
 		

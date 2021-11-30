@@ -1,6 +1,7 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
+#include <stdio.h>
 // socket configs
 #define SOCKET_PROTOCAL 0
 #define SOCKET_NAME "/tmp/studio16.socket"
@@ -9,7 +10,7 @@
 #define END_CODE 418
 #define SHORT_ARG "short"
 #define SHORT_CODE 200
-#define BATCH_CODE 201
+#define ARRAY_CODE 201
 
 /// arguments
 enum arguments_t {
@@ -42,10 +43,39 @@ static const char* err_desc[] =
 };
 
 /// handles errors by printing it to the standard error stream.
-/// @param:
+/// @param
 /// - err: the error code for the error to describe.
-/// @return: err.
+/// @return err.
 int err_handler(int err);
+
+/// converts and sends one integer code to the server.
+/// @param
+/// - fp: a pointer to the file.
+/// - int_data: the integer code to send.
+/// @return 0 upon success, non-zero error code upon failure.
+int send_int(FILE* fp, int int_data);
+
+/// converts and sends a short message with only one integer to the server.
+/// @param
+/// - fp: a pointer to the file.
+/// - int_data: the single integer to send.
+/// @return 0 upon success, non-zero error code upon failure.
+int send_short(FILE* fp, int int_data);
+
+/// converts and sends an array message with an array of integer to the server.
+/// @param
+/// - fp: a pointer to the file.
+/// - array_data: the array of integer to send.
+/// - array_len: the length of the array to send.
+/// @return 0 upon success, non-zero error code upon failure.
+int send_array(FILE* fp, int* array_data, int array_len);
+
+
+/// converts and sends the end code to the server.
+/// @param
+/// - fp: a pointer to the file.
+/// @return 0 upon success, non-zero error code upon failure.
+int send_end(FILE* fp);
 
 /// main
 int main(int argc, char* argv[]);

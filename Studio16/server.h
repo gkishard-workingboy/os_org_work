@@ -1,11 +1,14 @@
 #ifndef SEVER_H
 #define SEVER_H
 
+#include <stdio.h>
 // socket configs
 #define SOCKET_PROTOCAL 0
 #define SOCKET_NAME "/tmp/studio16.socket"
 #define SOCKET_BACKLOG_SIZE 10
 #define END_CODE 418
+#define SHORT_CODE 200
+#define ARRAY_CODE 201
 
 /// error codes
 enum err_code_t
@@ -36,6 +39,15 @@ static const char* err_desc[] =
 /// - err: the error code for the error to describe.
 /// @return: err.
 int err_handler(int err);
+
+/// converts and reads one integer code from the client.
+/// @param
+/// - fp: a pointer to the file.
+/// - int_data: the integer code to be read to.
+/// @return 0 upon success, non-zero error code upon failure.
+int recv_int(FILE* fp, int* int_data);
+
+int recv_socket(FILE* fp);
 
 /// main
 int main(int argc, char* argv[]);
