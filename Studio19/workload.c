@@ -34,9 +34,12 @@ int main(int argc, char* argv[])
 	CPU_SET(cpuno, &set);
 
 	// set affinity.
-	ret = FAILURE;
-	sched_setaffinity(getpid(), sizeof(set), &set) ;
-	if (ret < SUCCESS) perror("failed to set affinity");
+	ret = sched_setaffinity(getpid(), sizeof(set), &set) ;
+	if (ret < SUCCESS)
+	{
+		perror("failed to set affinity");
+		return ret;
+	}
 	
 	while (1)
 	{
