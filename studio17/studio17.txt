@@ -1,0 +1,25 @@
+1.
+Zhikuan Wei
+Jordan Sun
+
+
+2.
+pi@wzkpi:~/Documents/studio17 $ ./select 
+dfsg
+Read from stdin: dfsg 
+come
+Read from stdin: come 
+go
+Read from stdin: go 
+wzk
+Read from stdin: wzk 
+quit
+
+
+3.
+
+
+4.
+
+
+5.
