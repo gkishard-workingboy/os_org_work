@@ -17,32 +17,62 @@
 volatile sig_atomic_t done = 0;
 volatile int count = 0;
 
-void sig_handler( int signum ){
+void sig_handler (int signum)
+{
 
-    if (signum == SIGUSR1) {
+    if (signum == SIGUSR1)
+    {
         count++;
     }
 
-    if (signum == SIGUSR2) {
+    if (signum == SIGUSR2)
+    {
+        done = 1;
+    }
+    
+    if (signum == SIGRTMIN)
+    {
+        count++;
+    }
+
+    if (signum == SIGRTMIN+1)
+    {
         done = 1;
     }
 }
 
-int main (int argc, char* argv[]){
+void sig_action (int signum, siginfo_t * si, void * ucontext)
+{
+    
+    if (signum == SIGRTMIN)
+    {
+		if (si->si_value.sival_int == 0)
+		{
+			count++;
+		}
+		
+        if (si->si_value.sival_int == 1)
+		{
+			done = 1;
+		}
+    }
+
+}
+
+int main (int argc, char* argv[]) {
 
     struct sigaction ss;
 
-    ss.sa_handler = sig_handler;
-    ss.sa_flags = SA_RESTART;
+    ss.sa_sigaction = sig_action;
+    ss.sa_flags = SA_RESTART | SA_SIGINFO;
 
-    sigaction( SIGUSR1, &ss, NULL );
-    sigaction( SIGUSR2, &ss, NULL );
+    sigaction( SIGRTMIN, &ss, NULL );
 
     printf("pid: %d\n", getpid());
 
     while (!done) {}
 
-    printf("SIGUSR1 received %d times\n", count);
+    printf("SIGMIN with 0 received %d times\n", count);
 
     return 0;
 }

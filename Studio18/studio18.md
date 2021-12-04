@@ -109,12 +109,42 @@ sent out. This makes sense because signals are not queued, so if SIGUSR1 is sent
 before the receiver has handled the signal, it will miss.
 Receiver Side:
 ```
- ./receiver 
+pi@jordansunpi:~/Documents/CSE422S/lab2/operating_system_organization/Studio18 $ ./receiver 
 pid: 2568
 SIGUSR1 received 24 times
 ```
 Sender Side:
 ```
 pi@jordansunpi:~/Documents/CSE422S/lab2/operating_system_organization/Studio18 $ ./sender 2568 100
+target killed.
+```
+
+## Q10:
+Now the signal is queued and the receiver receives all 1024 signals sent. The soft limit
+is 6894.
+Receiver Side:
+```
+pi@jordansunpi:~/Documents/CSE422S/lab2/operating_system_organization/Studio18 $ ./receiver 
+pid: 7503
+SIGMIN received 1024 times
+```
+Sender Side:
+```
+pi@jordansunpi:~/Documents/CSE422S/lab2/operating_system_organization/Studio18 $ ./sender 7503 1024
+soft limit: 6894.
+target killed.
+```
+
+## Q11:
+Receiver Side:
+```
+pi@jordansunpi:~/Documents/CSE422S/lab2/operating_system_organization/Studio18 $ ./receiver 
+pid: 7620
+SIGMIN with 0 received 1024 times
+```
+Sender Side:
+```
+pi@jordansunpi:~/Documents/CSE422S/lab2/operating_system_organization/Studio18 $ ./sender 7620 1024
+soft limit: 6894.
 target killed.
 ```
