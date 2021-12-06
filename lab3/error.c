@@ -9,8 +9,9 @@
 static const char *error_message[] = {
     "Success",
     "Invalid argument(s)",
-    "Failed to open input file for read",
+    "Failed to open argument file for read",
     "Failed to open output file for write",
+    "Failed to open input file for read",
 };
 
 // print out the error.
@@ -18,13 +19,9 @@ static const char *error_message[] = {
 // - error_code: the error code of the error to print out.
 // - message: any additional to print out, NULL if no additional message.
 // @return: returns the error code.
-int error_handler(int error_code, char* message)
+unsigned int error_handler(unsigned int error_code, char *message)
 {
-    if (error_code < SUCCESS) {
-        // syscall error, call perror.
-        perror("System call failed with error");
-    }
-    else if (error_code == INVALID_ARGUMENT)
+    if (error_code == INVALID_ARGUMENT)
     {
         // invalid argument.
         fprintf(stderr, "%s\n", error_message[error_code]);
@@ -32,12 +29,12 @@ int error_handler(int error_code, char* message)
         if (message == NULL)
         {
             // no additional message, program fault.
-            fprintf(stderr, "usage: lab3 [file] [port]\n");
+            fprintf(stderr, "Usage: lab3 [file] [port]\n");
         }
         else
         {
             // additional message.
-            fprintf(stderr, "usage: %s [file] [port]\n", message);
+            fprintf(stderr, "Usage: %s [file] [port]\n", message);
         }
     }
     else {
