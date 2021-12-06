@@ -1,0 +1,55 @@
+// error.c
+// defines error code handling protocol.
+
+#include "error.h"
+
+#include <stdio.h>
+
+// error messages
+static const char *error_message[] = {
+    "Success",
+    "Invalid argument(s)",
+    "Failed to open input file for read",
+    "Failed to open output file for write",
+};
+
+// print out the error.
+// @param:
+// - error_code: the error code of the error to print out.
+// - message: any additional to print out, NULL if no additional message.
+// @return: returns the error code.
+int error_handler(int error_code, char* message)
+{
+    if (error_code < SUCCESS) {
+        // syscall error, call perror.
+        perror("System call failed with error");
+    }
+    else if (error_code == INVALID_ARGUMENT)
+    {
+        // invalid argument.
+        fprintf(stderr, "%s\n", error_message[error_code]);
+        // print usage message.
+        if (message == NULL)
+        {
+            // no additional message, program fault.
+            fprintf(stderr, "usage: lab3 [file] [port]\n");
+        }
+        else
+        {
+            // additional message.
+            fprintf(stderr, "usage: %s [file] [port]\n", message);
+        }
+    }
+    else {
+        // program error, print error message.
+        if (message == NULL) {
+            // no additional message.
+            fprintf(stderr, "%s\n", error_message[error_code]);
+        } else
+        {
+            // additional message.
+            fprintf(stderr, "%s: %s\n", error_message[error_code], message);
+        }
+    }
+    return error_code;
+}
