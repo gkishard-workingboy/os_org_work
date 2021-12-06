@@ -3,23 +3,54 @@ Zhikuan Wei
 Zhuoran Sun
 
 2.
+time ./rt-workload 0
+
+real	0m5.439s
+user	0m5.433s
+sys	0m0.001s
 
 
 3.
-"sudo trace-cmd record -e sched_switch ./big_loop 0"
+kworker
+ksoftirqd
+trace-cmd
 
-three processes interfered with my program.
+That cpu just keep switch between those process and execution of my program.
 
 4.
+The largest priority we can use in sudo is 99.
+And we cannot change scheduler without sudo.
 
 
+5.
+Basicly speaking, nearly no processes preempted my program, but one at the beginning,
+whose name is thd.
 
-5
 
-6
+6.
+Only 4 times switches on cpu 0.
+And 2038 times switches on cpu 1.
+And 5954 times switches on cpu 2.
+And 1779 times switches on cpu 3.
 
-7
 
-8
+7.
+Only two number of priority have been used, first is 99, second is 50.
 
-9
+rcu_preempt
+migration
+watchdogd
+irq
+
+maybe those processes need to be change dynamically the priority number.
+
+8.
+5 switches.
+My program is never preempted.
+
+9.
+The time slice of round-robin is 0.1s.
+
+The pattern I see is that three process evenly preempt the cpu for computing.
+Its like a periodic sequence that shows three different color blocks meaning
+three different execution to take cpu. 

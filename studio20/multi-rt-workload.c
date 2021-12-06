@@ -15,24 +15,26 @@ enum args
 	PROGRAM_NAME,
 	CPU_NO,
 	RT_PRIORITY,
+	TASK_NUM,
 	EXPECTED_ARGC
 };
 
 int main(int argc, char* argv[])
 {
-	int ret;
-	int cpuno, rt_priority;
+	int ret, l, r, m;
+	int cpuno, rt_priority, taskno;
 	int count = 0, accumulator = 0;
 	cpu_set_t set;
 	struct sched_param sparam;
 
 	// validate input.
 	if (argc != EXPECTED_ARGC) {
-		fprintf(stderr, "usage: %s <cpuno, rt_priority>\n", argv[PROGRAM_NAME]);
+		fprintf(stderr, "usage: %s <cpuno, rt_priority, taskno> \n", argv[PROGRAM_NAME]);
 		return FAILURE;
 	}
 	cpuno = atoi(argv[CPU_NO]);
 	rt_priority = atoi(argv[RT_PRIORITY]);
+	taskno = atoi(argv[TASK_NUM]);
 
 	//check rt_priority range.
 	if (rt_priority < sched_get_priority_min(SCHED_RR) || rt_priority > sched_get_priority_max(SCHED_RR)) {
@@ -40,11 +42,9 @@ int main(int argc, char* argv[])
 		return FAILURE;
 	}
 
-	sparam.sched_priority = rt_priority;
-
-	//set scheduler
-	if (sched_setscheduler(0, SCHED_RR, &sparam) == -1) {
-		perror("set scheduler failed.");
+	//check task number range.
+	if (taskno < 1 || taskno > 10) {
+		perror("Task number only ranges from 1 to 10 inclusive!");
 		return FAILURE;
 	}
 
@@ -59,7 +59,26 @@ int main(int argc, char* argv[])
 		perror("failed to set affinity");
 		return ret;
 	}
-	
+	sparam.sched_priority = rt_priority;
+
+	//set scheduler
+	if (sched_setscheduler(0, SCHED_RR, &sparam) == -1) {
+		perror("set scheduler failed.");
+		return FAILURE;
+	}
+
+	l = 1;
+	r = taskno + 1;
+
+	while (l < r) {
+		m = l + ((r - l) >> 1);
+		if (fork() != 0) {
+			r = l;
+		} else {
+			l = m + 1;
+		}
+	}
+
 	while (++count < LOOP_LIMIT)
 	{
 		accumulator = (accumulator + 1) * 3;
