@@ -10,8 +10,10 @@ static const char *error_message[] = {
     "Success",
     "Invalid argument(s)",
     "Failed to open argument file for read",
+    "Empty file",
     "Failed to open output file for write",
     "Failed to open input file for read",
+    "Out of memory",
 };
 
 // print out the error.

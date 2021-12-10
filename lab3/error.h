@@ -10,8 +10,10 @@ typedef enum error_code
     SUCCESS,
     INVALID_ARGUMENT,      // invalid number of arguments.
     FAILED_TO_OPEN_ARGUMENT,  // failed to open the file specified by the argument for read.
+    EMPTY_ARGUMENT_FILE,    // empty file
     FAILED_TO_OPEN_OUTPUT, // failed to open the first file for write.
     FAILED_TO_OPEN_INPUT,  // failed to open one of the subsequent files for read.
+    OUT_OF_MEMORY,    // out of memory
 } error_code_t;
 
 // print out the error.
