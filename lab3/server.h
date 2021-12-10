@@ -13,4 +13,8 @@ typedef enum argument_index
     EXPECTED_ARGC
 } argument_index_t;
 
+// socket configs
+#define SOCKET_PROTOCAL 0
+#define SOCKET_BACKLOG_SIZE 10
+
 #endif /* SERVER_H */

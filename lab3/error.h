@@ -14,6 +14,12 @@ typedef enum error_code
     FAILED_TO_OPEN_OUTPUT, // failed to open the first file for write.
     FAILED_TO_OPEN_INPUT,  // failed to open one of the subsequent files for read.
     OUT_OF_MEMORY,    // out of memory
+	ERR_HOST_NAME,
+	ERR_SOCKET,
+	ERR_BIND,
+	ERR_LISTEN,
+	ERR_ACCEPT,
+	ERR_OPEN,
 } error_code_t;
 
 // print out the error.

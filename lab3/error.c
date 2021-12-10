@@ -14,6 +14,12 @@ static const char *error_message[] = {
     "Failed to open output file for write",
     "Failed to open input file for read",
     "Out of memory",
+	"Failed to get host name",
+	"Failed to create connection socket",
+	"Failed to bind socket",
+	"Failed to listen to socket",
+	"Failed to accept data socket",
+	"Failed to open data socket",
 };
 
 // print out the error.

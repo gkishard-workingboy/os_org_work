@@ -4,11 +4,22 @@
 #include "server.h"
 #include "error.h"
 
+// uses GNU extension reallocarray() and fcloseall()
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
+// for socket(), bind()
+#include <sys/types.h>
+#include <sys/socket.h>
+// for unix
+#include <sys/un.h>
+// for remote
+#include <netinet/ip.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 
 // defines the maximum number of characters in a file name.
 // 255 for linux.
@@ -16,8 +27,8 @@
 
 int main(int argc, char* argv[])
 {
-    // stores the return value of a function call
-    int ret;
+	// stores the return value of system calls.
+	int ret;
     
     // stores the file name.
     char file_name[NAME_MAX+1];
@@ -41,6 +52,23 @@ int main(int argc, char* argv[])
 	unsigned int current_len = 0;
 	unsigned int max_len = 0;
 	char* line_buf = NULL;
+    
+    // stores the file descriptor for the sockets.
+	unsigned int connection_socket, data_socket;
+	// stores the internet domain socket address used.
+	struct sockaddr_in name;
+	// stores the internet domain socket address accepted.
+	struct sockaddr_in addr;
+	socklen_t addr_len;
+	// stores a file pointer to the socket.
+	FILE * data_fp;
+	
+	// stores the own host name.
+	char server_host_name[NI_MAXHOST];
+	// stores the own host name.
+    unsigned int port_number;
+	// stores the socket's host name and service name.
+	char host_name[NI_MAXHOST], service_name[NI_MAXSERV];
 
     // validate arguments
     if (argc != EXPECTED_ARGC)
@@ -146,7 +174,78 @@ int main(int argc, char* argv[])
         }
     }
     #endif
+    
+    // convert port number to unsigned int.
+    port_number = atoi(argv[PORT_NUMBER]);
+	
+	// create a socket for local connection.
+	connection_socket = socket(AF_INET, SOCK_STREAM, SOCKET_PROTOCAL);
+	// on error, -1 is returned.
+	if (connection_socket < SUCCESS)
+    {
+        // close files
+        fcloseall();
 
+        // free
+        free(line_buf);
+        free(inputs);
+        return error_handler(ERR_SOCKET, strerror(errno));
+    }
+	printf("Created connection socket %u.\n", connection_socket);
+	
+	// connected, get name info
+	ret = gethostname(server_host_name, sizeof(server_host_name));
+	// on error, -1 is returned.
+	if (ret < SUCCESS)
+    {
+        // close files
+        fcloseall();
+
+        // free
+        free(line_buf);
+        free(inputs);
+        return error_handler(ERR_HOST_NAME, strerror(errno));
+    }
+	printf("Hosting on %s on port %u.\n", server_host_name, port_number);
+	
+	// create the communications channel.
+	memset(&name, 0, sizeof(struct sockaddr_in));
+	name.sin_family = AF_INET;
+	name.sin_port = htons(port_number);
+    name.sin_addr.s_addr = INADDR_ANY;
+	ret = bind(connection_socket, (const struct sockaddr *) &name,
+                      sizeof(struct sockaddr_in));
+	// on error, -1 is returned.
+	if (ret < SUCCESS)
+    {
+        // close files
+        fcloseall();
+
+        // free
+        free(line_buf);
+        free(inputs);
+        return error_handler(ERR_BIND, strerror(errno));
+    }
+	
+	// start listening on connection socket.
+	ret = listen(connection_socket, SOCKET_BACKLOG_SIZE);
+	// on error, -1 is returned.
+	if (ret < SUCCESS)
+    {
+        // close files
+        fcloseall();
+
+        // free
+        free(line_buf);
+        free(inputs);
+        return error_handler(ERR_LISTEN, strerror(errno));
+    }
+	printf("Start listening on connection socket %u.\n", connection_socket);
+    
+    // close the connection socket.
+	printf("Closing connection socket %u.\n", connection_socket);
+    close(connection_socket);
+    
     // close files
     fcloseall();
 
