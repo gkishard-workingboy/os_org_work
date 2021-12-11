@@ -19,7 +19,6 @@ int read_and_send(rw_obj *in, int out)
     if (in->last_len < in->line_len) {
         in->last_len += write(out, in->line_buf + in->last_len, in->line_len - in->last_len);
     } else {
-        free(in->line_buf);
         // gets the next line from the input.
         in->line_len = getline(&in->line_buf, &in->line_len, in->fptr);
         if (in->line_len == -1) {
@@ -103,7 +102,6 @@ int main(int argc, char* argv[])
     // stores an array of file pointers to the input files specified by the initial input file.
     // allocated dynamically on the heap at runtime.
     FILE **inputs;
-    FILE **new;
 
     // inputs size.
     size_t inputs_size = 0;
@@ -191,16 +189,13 @@ int main(int argc, char* argv[])
         {
             // reallocate inputs to be twice as big.
             inputs_capacity = inputs_capacity * 2; // optimize to be << 1.
-            new = reallocarray(inputs, inputs_capacity, sizeof(FILE*));
-            // free the old pointer.
-            free(inputs);
-            if (new == NULL)
+            inputs = reallocarray(inputs, inputs_capacity, sizeof(FILE*));
+            if (inputs == NULL)
             {
                 // reallocarray failed.
                 fcloseall();
                 return error_handler(OUT_OF_MEMORY, NULL);
             }
-            inputs = new;
         }
         // open input file for read
         inputs[inputs_size-1] = fopen(file_name, "r");
@@ -335,13 +330,13 @@ int main(int argc, char* argv[])
                         data_rw_obj->last_len += read(fd, data_rw_obj->line_buf + data_rw_obj->last_len, RD_BUF_SIZE - data_rw_obj->last_len);
                         // search for a line, and do insert for each line.
                         data_rw_obj->line_len = 0;
-                        for (int i = 0; i < data_rw_obj->last_len; ++i) {
-                            if (data_rw_obj->line_buf[i] == '\n'){
-                                strncpy(rd_buf, data_rw_obj->line_buf + data_rw_obj->line_len, i - data_rw_obj->line_len + 1);
+                        for (int j = 0; j < data_rw_obj->last_len; ++j) {
+                            if (data_rw_obj->line_buf[j] == '\n'){
+                                strncpy(rd_buf, data_rw_obj->line_buf + data_rw_obj->line_len, j - data_rw_obj->line_len + 1);
                                 // insert line into heap.
-                                insert_string(rd_buf, i - data_rw_obj->line_len + 1, &heap_root);
+                                insert_string(rd_buf, j - data_rw_obj->line_len + 1, &heap_root);
                                 // lets start searching for more line.
-                                data_rw_obj->line_len = i + 1;
+                                data_rw_obj->line_len = j + 1;
                             }
                         }
                         // compact line_buf
