@@ -25,7 +25,6 @@
 #define NAME_MAX 255
 
 // defines error code handling protocol.
-
 // error messages
 static const char *error_message[] = {
     "Success",
@@ -35,19 +34,19 @@ static const char *error_message[] = {
     "Failed to open output file for write",
     "Failed to open input file for read",
     "Out of memory",
-	"Failed to get host name",
-	"Failed to create connection socket",
-	"Failed to bind socket",
-	"Failed to listen to socket",
-	"Failed to accept data socket",
-	"Failed to open data socket",
+    "Failed to get host name",
+    "Failed to create connection socket",
+    "Failed to bind socket",
+    "Failed to listen to socket",
+    "Failed to accept data socket",
+    "Failed to open data socket",
 };
 
-// print out the error.
-// @param:
-// - error_code: the error code of the error to print out.
-// - message: any additional to print out, NULL if no additional message.
-// @return: returns the error code.
+/// print out the error.
+/// @param:
+/// - error_code: the error code of the error to print out.
+/// - message: any additional to print out, NULL if no additional message.
+/// @return: returns the error code.
 unsigned int error_handler(unsigned int error_code, char *message)
 {
     if (error_code == INVALID_ARGUMENT)
@@ -58,7 +57,7 @@ unsigned int error_handler(unsigned int error_code, char *message)
         if (message == NULL)
         {
             // no additional message, program fault.
-            fprintf(stderr, "Usage: lab3 [file] [port]\n");
+            fprintf(stderr, "Usage: [program] [file] [port]\n");
         }
         else
         {
@@ -80,10 +79,13 @@ unsigned int error_handler(unsigned int error_code, char *message)
     return error_code;
 }
 
+/// main
 int main(int argc, char* argv[])
 {
-	// stores the return value of system calls.
-	int ret;
+    /* variables */
+    
+    // stores the return value of system calls.
+    int ret;
     
     // stores the file name.
     char file_name[NAME_MAX+1];
@@ -103,27 +105,29 @@ int main(int argc, char* argv[])
     // max inputs capacity.
     size_t inputs_capacity = 4;
     
-	// read from file
-	unsigned int current_len = 0;
-	unsigned int max_len = 0;
-	char* line_buf = NULL;
+    // read from file
+    unsigned int current_len = 0;
+    unsigned int max_len = 0;
+    char* line_buf = NULL;
     
     // stores the file descriptor for the sockets.
-	unsigned int connection_socket, data_socket;
-	// stores the internet domain socket address used.
-	struct sockaddr_in name;
-	// stores the internet domain socket address accepted.
-	struct sockaddr_in addr;
-	socklen_t addr_len;
-	// stores a file pointer to the socket.
-	FILE * data_fp;
-	
-	// stores the own host name.
-	char server_host_name[NI_MAXHOST];
-	// stores the own host name.
+    unsigned int connection_socket, data_socket;
+    // stores the internet domain socket address used.
+    struct sockaddr_in name;
+    // stores the internet domain socket address accepted.
+    struct sockaddr_in addr;
+    socklen_t addr_len;
+    // stores a file pointer to the socket.
+    FILE * data_fp;
+    
+    // stores the own host name.
+    char server_host_name[NI_MAXHOST];
+    // stores the own host name.
     unsigned int port_number;
-	// stores the socket's host name and service name.
-	char host_name[NI_MAXHOST], service_name[NI_MAXSERV];
+    // stores the socket's host name and service name.
+    char host_name[NI_MAXHOST], service_name[NI_MAXSERV];
+
+    /* body */
 
     // validate arguments
     if (argc != EXPECTED_ARGC)
@@ -232,11 +236,11 @@ int main(int argc, char* argv[])
     
     // convert port number to unsigned int.
     port_number = atoi(argv[PORT_NUMBER]);
-	
-	// create a socket for local connection.
-	connection_socket = socket(AF_INET, SOCK_STREAM, SOCKET_PROTOCAL);
-	// on error, -1 is returned.
-	if (connection_socket < SUCCESS)
+    
+    // create a socket for local connection.
+    connection_socket = socket(AF_INET, SOCK_STREAM, SOCKET_PROTOCAL);
+    // on error, -1 is returned.
+    if (connection_socket < SUCCESS)
     {
         // close files
         fcloseall();
@@ -246,12 +250,12 @@ int main(int argc, char* argv[])
         free(inputs);
         return error_handler(ERR_SOCKET, strerror(errno));
     }
-	printf("Created connection socket %u.\n", connection_socket);
-	
-	// connected, get name info
-	ret = gethostname(server_host_name, sizeof(server_host_name));
-	// on error, -1 is returned.
-	if (ret < SUCCESS)
+    printf("Created connection socket %u.\n", connection_socket);
+    
+    // connected, get name info
+    ret = gethostname(server_host_name, sizeof(server_host_name));
+    // on error, -1 is returned.
+    if (ret < SUCCESS)
     {
         // close files
         fcloseall();
@@ -261,17 +265,16 @@ int main(int argc, char* argv[])
         free(inputs);
         return error_handler(ERR_HOST_NAME, strerror(errno));
     }
-	printf("Hosting on %s on port %u.\n", server_host_name, port_number);
-	
-	// create the communications channel.
-	memset(&name, 0, sizeof(struct sockaddr_in));
-	name.sin_family = AF_INET;
-	name.sin_port = htons(port_number);
+    printf("Hosting on %s on port %u.\n", server_host_name, port_number);
+    
+    // create the communications channel.
+    memset(&name, 0, sizeof(struct sockaddr_in));
+    name.sin_family = AF_INET;
+    name.sin_port = htons(port_number);
     name.sin_addr.s_addr = INADDR_ANY;
-	ret = bind(connection_socket, (const struct sockaddr *) &name,
-                      sizeof(struct sockaddr_in));
-	// on error, -1 is returned.
-	if (ret < SUCCESS)
+    ret = bind(connection_socket, (const struct sockaddr *) &name, sizeof(struct sockaddr_in));
+    // on error, -1 is returned.
+    if (ret < SUCCESS)
     {
         // close files
         fcloseall();
@@ -281,11 +284,11 @@ int main(int argc, char* argv[])
         free(inputs);
         return error_handler(ERR_BIND, strerror(errno));
     }
-	
-	// start listening on connection socket.
-	ret = listen(connection_socket, SOCKET_BACKLOG_SIZE);
-	// on error, -1 is returned.
-	if (ret < SUCCESS)
+    
+    // start listening on connection socket.
+    ret = listen(connection_socket, SOCKET_BACKLOG_SIZE);
+    // on error, -1 is returned.
+    if (ret < SUCCESS)
     {
         // close files
         fcloseall();
@@ -295,10 +298,10 @@ int main(int argc, char* argv[])
         free(inputs);
         return error_handler(ERR_LISTEN, strerror(errno));
     }
-	printf("Start listening on connection socket %u.\n", connection_socket);
-    
+    printf("Start listening on connection socket %u.\n", connection_socket);
+
     // close the connection socket.
-	printf("Closing connection socket %u.\n", connection_socket);
+    printf("Closing connection socket %u.\n", connection_socket);
     close(connection_socket);
     
     // close files

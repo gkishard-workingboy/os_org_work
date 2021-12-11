@@ -1,18 +1,17 @@
-// server.h
-// declares the server.
+// client.h
+// declares the client.
 
-#ifndef SERVER_H
-#define SERVER_H
+#ifndef CLIENT_H
+#define CLIENT_H
 
 // socket configs
 #define SOCKET_PROTOCAL 0
-#define SOCKET_BACKLOG_SIZE 10
 
 // argument indices
 typedef enum argument_index
 {
     PROGRAM_NAME,
-    ARGUMENT_FILE_NAME,
+    HOST_NAME,
     PORT_NUMBER,
     EXPECTED_ARGC
 } argument_index_t;
@@ -47,4 +46,4 @@ unsigned int error_handler(unsigned int error_code, char *message);
 /// main
 int main(int argc, char* argv[]);
 
-#endif /* SERVER_H */
+#endif /* CLIENT_H */
