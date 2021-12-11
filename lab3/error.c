@@ -4,6 +4,7 @@
 #include "error.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 // error messages
 static const char *error_message[] = {
@@ -24,11 +25,11 @@ static const char *error_message[] = {
     "Failed to control epoll",
 };
 
-// print out the error.
-// @param:
-// - error_code: the error code of the error to print out.
-// - message: any additional to print out, NULL if no additional message.
-// @return: returns the error code.
+/// print out the error.
+/// @param:
+/// - error_code: the error code of the error to print out.
+/// - message: any additional to print out, NULL if no additional message.
+/// @return: returns the error code.
 unsigned int error_handler(unsigned int error_code, char *message)
 {
     if (error_code == INVALID_ARGUMENT)

@@ -4,6 +4,11 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+// socket configs
+#define SOCKET_PROTOCAL 0
+#define SOCKET_BACKLOG_SIZE 255
+#define EVENT_SIZE 5
+
 // argument indices
 typedef enum argument_index
 {
@@ -12,10 +17,5 @@ typedef enum argument_index
     PORT_NUMBER,
     EXPECTED_ARGC
 } argument_index_t;
-
-// socket configs
-#define SOCKET_PROTOCAL 0
-#define SOCKET_BACKLOG_SIZE 10
-#define EVENT_SIZE 5
 
 #endif /* SERVER_H */
