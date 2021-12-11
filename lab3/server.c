@@ -368,7 +368,7 @@ int main(int argc, char* argv[])
                         fd = evlist[i].data.fd;
 
                         // store the corresponding file pointer of current connection socket.
-                        data_rw_obj = &rw_objs[fd - connections_size - 1];
+                        data_rw_obj = &rw_objs[con2rw_obj[fd]];
 
                         // client read from corresponding file pointer. 
                         ret = read_and_send(data_rw_obj, fd);
