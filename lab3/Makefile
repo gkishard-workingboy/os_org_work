@@ -1,4 +1,4 @@
 all:	server.out
 
-server.out:	server.c error.c
+server.out:	server.c
 	gcc $^ -o $@ -Wall

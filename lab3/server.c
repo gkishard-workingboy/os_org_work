@@ -2,7 +2,6 @@
 // defines the server.
 
 #include "server.h"
-#include "error.h"
 
 // uses GNU extension reallocarray() and fcloseall()
 #define _GNU_SOURCE
@@ -24,6 +23,62 @@
 // defines the maximum number of characters in a file name.
 // 255 for linux.
 #define NAME_MAX 255
+
+// defines error code handling protocol.
+
+// error messages
+static const char *error_message[] = {
+    "Success",
+    "Invalid argument(s)",
+    "Failed to open argument file for read",
+    "Empty file",
+    "Failed to open output file for write",
+    "Failed to open input file for read",
+    "Out of memory",
+	"Failed to get host name",
+	"Failed to create connection socket",
+	"Failed to bind socket",
+	"Failed to listen to socket",
+	"Failed to accept data socket",
+	"Failed to open data socket",
+};
+
+// print out the error.
+// @param:
+// - error_code: the error code of the error to print out.
+// - message: any additional to print out, NULL if no additional message.
+// @return: returns the error code.
+unsigned int error_handler(unsigned int error_code, char *message)
+{
+    if (error_code == INVALID_ARGUMENT)
+    {
+        // invalid argument.
+        fprintf(stderr, "%s\n", error_message[error_code]);
+        // print usage message.
+        if (message == NULL)
+        {
+            // no additional message, program fault.
+            fprintf(stderr, "Usage: lab3 [file] [port]\n");
+        }
+        else
+        {
+            // additional message.
+            fprintf(stderr, "Usage: %s [file] [port]\n", message);
+        }
+    }
+    else {
+        // program error, print error message.
+        if (message == NULL) {
+            // no additional message.
+            fprintf(stderr, "%s\n", error_message[error_code]);
+        } else
+        {
+            // additional message.
+            fprintf(stderr, "%s: %s\n", error_message[error_code], message);
+        }
+    }
+    return error_code;
+}
 
 int main(int argc, char* argv[])
 {
