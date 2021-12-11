@@ -119,6 +119,7 @@ int main(int argc, char* argv[])
             // reallocate inputs to be twice as big.
             inputs_capacity = inputs_capacity * 2; // optimize to be << 1.
             new = reallocarray(inputs, inputs_capacity, sizeof(FILE*));
+            // free the old pointer.
             free(inputs);
             if (new == NULL)
             {
@@ -126,7 +127,6 @@ int main(int argc, char* argv[])
                 fcloseall();
                 return error_handler(OUT_OF_MEMORY, NULL);
             }
-            free(inputs);
             inputs = new;
         }
         // open input file for read
