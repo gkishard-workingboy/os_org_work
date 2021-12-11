@@ -3,6 +3,7 @@
 
 #include "server.h"
 #include "error.h"
+#include "heap.h"
 
 // uses GNU extension reallocarray() and fcloseall()
 #define _GNU_SOURCE
@@ -28,10 +29,10 @@
 #define NAME_MAX 255
 
 /// read a line from input file and send it through a socket file descriptor.
-/// @param:
-/// - in: the file pointer to the input.
-/// - out: the file pointer to the socket.
-int read_and_send(rw_obj * in, int out)
+/// @param in: the rw_obj pointer to the input.
+/// @param out: the file pointer to the socket.
+/// @return normally returns the number of characters read, or -1 if the file is read empty.
+int read_and_send(rw_obj *in, int out)
 {
     // last time is a short write.    
     if (in->last_len < in->line_len) {
@@ -40,14 +41,58 @@ int read_and_send(rw_obj * in, int out)
         free(in->line_buf);
         // gets the next line from the input.
         in->line_len = in->last_lengetline(&in->line_buf, &in->line_len, in->fptr);
-        if (current_len == -1) {
+        if (in->line_len == -1) {
             fclose(in->fptr);
         } else {
             // write a line to the output.
             in->last_len = write(out, in->line_buf, current_len);
         }
     }
-    return current_len;
+    return in->line_len;
+}
+
+/// compares two keys
+int cmp_node(void* lhs, void* rhs)
+{
+    int l = *(int *)lhs;
+    int r = *(int *)rhs;
+    if (l == r) return 0;
+    if (l > r) return 1;
+    return -1;
+}
+
+/// insert string into the min heap.
+/// @param line: the input string.
+/// @param len: lenght of string.
+/// @param root: the specified heap.
+/// @return -1 upon failure, 0 upon success.
+int insert_string(char* line, unsigned int len, heap* root)
+{
+    // index value
+    int i = 0;
+    // line number, used as key for the min heap.
+    int* key = (int*)malloc(sizeof(int));
+    // line buffer and len that holds the line
+    // used as value for the min heap.
+    char* line_buf = NULL;
+
+    for (i = 0; i < len; ++i) {
+        if (rd_buf[i] == ' ') {
+            // seperate line number and line contents.
+            rd_buf[i] = '\0';
+            key = atoi(rd_buf);
+            // copy line content into a new string.
+            line_buf = calloc(len - i, sizeof(char));
+            strncpy(line_buf, rd_buf[i+1], len - i - 1);
+            // add null terminator to the end of string.
+            line_buf[len - i] = '\0';
+            break;
+        }
+    }
+    // insert such line into heap.
+    heap_insert(root, key, line_buf);
+
+    return i == len - 1 ? -1 : 0;
 }
 
 typedef struct read_write_object {
@@ -125,6 +170,12 @@ int main(int argc, char* argv[])
     rw_obj *rw_objs;
     // point to specified rw_obj for further processing.
     rw_obj *data_rw_obj;
+
+    // a min heap, initialized later.
+    heap heap_root;
+    // heap variable bundle.
+    int* keys;
+    char* value;
 
     struct epoll_event event, evlist[EVENT_SIZE];
 
@@ -270,6 +321,8 @@ int main(int argc, char* argv[])
         return error_helper(ERR_EP_CTL_ADD, strerror(errno), rw_objs, inputs);
     }
 
+    heap_create(&heap_root, 0, cmp_node);
+
     // while loop for accept socket connections.
     do {
         //epoll will block until a connection is ready for I/O
@@ -323,10 +376,11 @@ int main(int argc, char* argv[])
                         for (int i = 0, data_rw_obj->line_len = 0; i < data_rw_obj->last_len; ++i) {
                             if (data_rw_obj->line_buf[i] == '\n'){
                                 strncpy(rd_buf, data_rw_obj->line_buf + data_rw_obj->line_len, i - data_rw_obj->line_len + 1);
+                                // insert line into heap.
+                                insert_string(rd_buf, i - data_rw_obj->line_buf + 1, &heap_root);
+                                // lets start searching for more line.
                                 data_rw_obj->line_len = i + 1;
                             }
-                            //TODO insert
-                            
                         }
                         // compact line_buf
                         if (data_rw_obj->line_len > 0) {
@@ -359,10 +413,27 @@ int main(int argc, char* argv[])
                 } else if (evlist[i].events & EPOLLRDHUP) {
                     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
                     close(fd);
+                    // all tasks of client have been finished. 
+                    if (--connections_size == 0) {
+                        break;
+                    }
                 }
             }
         }
-    } while (/*condition*/);
+    } while (1);
+
+    // keep pop the top object of heap, and output it to the output file until no object left in heap.
+    ret = heap_delmin(&heap_root, (void**)&key, (void**)&value);
+    while (ret) {
+        fprintf(output, "%s", value);
+        ret = heap_delmin(&heap_root, (void**)&key, (void**)&value);
+        // free the dynamically allocated object!
+        free(key);
+        free(value);
+    }
+
+    // free the min heap
+    heap_destroy(&root);
 
     // print end point
     printf("server finishes task.");
