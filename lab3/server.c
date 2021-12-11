@@ -27,27 +27,35 @@
 // 255 for linux.
 #define NAME_MAX 255
 
-/// read an input file and send it through a socket.
+/// read a line from input file and send it through a socket file descriptor.
 /// @param:
 /// - in: the file pointer to the input.
 /// - out: the file pointer to the socket.
-void read_and_send(FILE* in, FILE* out)
+int read_and_send(rw_obj * in, int out)
 {
-    char* line_buf = NULL;
-    int current_len = 0;
-    unsigned int max_len = 0;
-    
-    // gets the next line from the input.
-    current_len = getline(&line_buf, &max_len, in);
-    while (current_len >= 0) {
-        // writes it to the output.
-        fprintf(out, "%.*s", current_len, line_buf);
+    // last time is a short write.    
+    if (in->last_len < in->line_len) {
+        in->last_len += write(out, in->line_buf + in->last_len, in->line_len - in->last_len);
+    } else {
+        free(in->line_buf);
         // gets the next line from the input.
-        current_len = getline(&line_buf, &max_len, in);
+        in->line_len = in->last_lengetline(&in->line_buf, &in->line_len, in->fptr);
+        if (current_len == -1) {
+            fclose(in->fptr);
+        } else {
+            // write a line to the output.
+            in->last_len = write(out, in->line_buf, current_len);
+        }
     }
-    
-    free(line_buf);
+    return current_len;
 }
+
+typedef struct read_write_object {
+    unsigned int last_len;
+    unsigned int line_len;
+    char* line_buf;
+    FILE* fptr;
+} rw_obj;
     
 /// main
 int main(int argc, char* argv[])
@@ -79,10 +87,7 @@ int main(int argc, char* argv[])
     FILE **new;
 
     // stores a file pointer as the corresponding source for specified connection. 
-    File *data_output;
-
-    // connections array
-    int *connections;
+    File **data_output;
 
     // inputs size.
     size_t inputs_size = 0;
@@ -90,8 +95,6 @@ int main(int argc, char* argv[])
     size_t inputs_capacity = 4;
     // connections size
     size_t connections_size = 0;
-    // max connections capacity.
-    size_t connections_capacity = 4;
     
     /* remove this */
     // read from file
@@ -109,17 +112,25 @@ int main(int argc, char* argv[])
     // stores a file pointer to the socket.
     FILE * data_fp;
     
+    // stores the line data read from the socket.
+    char rd_buf[RD_BUF_SIZE];
     // stores the own host name.
     char server_host_name[NI_MAXHOST];
     // stores the own host name.
     unsigned int port_number;
     // stores the socket's host name and service name.
-    char host_name[NI_MAXHOST], service_name[NI_MAXSERV];
+    char host_name[NI_MAXHOST];
 
-    /* body */
+    // store an array of rw_obj containing corresponding rw_obj for each socket.
+    rw_obj *rw_objs;
+    // point to specified rw_obj for further processing.
+    rw_obj *data_rw_obj;
 
     struct epoll_event event, evlist[EVENT_SIZE];
 
+
+    /* body */
+    
     // validate arguments
     if (argc != EXPECTED_ARGC)
     {
@@ -191,40 +202,12 @@ int main(int argc, char* argv[])
         // scan next input file name
         ret = fscanf(argument, "%s", file_name);
     }
-        
-    #ifdef __DEBUG
-    // if debug, output the input file content.
-    for (size_t i = 0; i < inputs_size; ++i) {
-        // scan length of next line
-        ret = fscanf(inputs[i], "%u", &current_len);
-        while (ret > SUCCESS) {
-            if (current_len > max_len) {
-                // update max len
-                max_len = current_len;
-                // allocate a larger buffer
-                if (line_buf) {
-                    // initialized, call realloc.
-                    line_buf = (char*)realloc(line_buf, max_len);
-                }
-                else {
-                    // uninitialized, call malloc.
-                    line_buf = (char*)malloc(max_len);
-                }
-            }
-            // read in content including the end line character.
-            ret = fscanf(inputs[i], " %s", line_buf);
-            if (ret < SUCCESS) {
-                perror("unexpected end of file.\n");
-                break;
-            }
-            // print the contents, with a maximum of current_len characters.
-            fprintf(output, "%.*s\n", current_len, line_buf);
-            // scan length of next line
-            ret = fscanf(inputs[i], "%u", &current_len);
-        }
+
+    rw_objs = calloc(inputs_size, sizeof(rw_obj));
+    if (rw_objs == NULL) {
+        return error_helper(OUT_OF_MEMORY, NULL, inputs, NULL);
     }
-    #endif
-    
+
     // convert port number to unsigned int.
     port_number = atoi(argv[PORT_NUMBER]);
     
@@ -236,7 +219,7 @@ int main(int argc, char* argv[])
         // close files.
         fcloseall();
         // free heap memory.
-        return error_helper(ERR_SOCKET, strerror(errno), line_buf, inputs);
+        return error_helper(ERR_SOCKET, strerror(errno), rw_objs, inputs);
     }
     printf("Created connection socket %u.\n", connection_socket);
     
@@ -246,7 +229,7 @@ int main(int argc, char* argv[])
     if (ret < SUCCESS)
     {
         fcloseall();
-        return error_helper(ERR_LISTEN, strerror(errno), line_buf, inputs);
+        return error_helper(ERR_LISTEN, strerror(errno), rw_objs, inputs);
     }
     printf("Hosting on %s on port %u.\n", server_host_name, port_number);
     
@@ -260,7 +243,7 @@ int main(int argc, char* argv[])
     if (ret < SUCCESS)
     {
         fcloseall();
-        return error_helper(ERR_BIND, strerror(errno), line_buf, inputs);
+        return error_helper(ERR_BIND, strerror(errno), rw_objs, inputs);
     }
     
     // start listening on connection socket.
@@ -269,14 +252,14 @@ int main(int argc, char* argv[])
     if (ret < SUCCESS)
     {
         fcloseall();
-        return error_helper(ERR_LISTEN, strerror(errno), line_buf, inputs);
+        return error_helper(ERR_LISTEN, strerror(errno), rw_objs, inputs);
     }
 	printf("Start listening on connection socket %u.\n", connection_socket);
     
     epoll_fd = epoll_create1(0);
     if (epoll_fd < 0) {
         fcloseall();
-        return error_helper(ERR_EP_CREATE, strerror(errno), line_buf, inputs);
+        return error_helper(ERR_EP_CREATE, strerror(errno), rw_objs, inputs);
     }
 
     ev.data.fd = connection_socket;
@@ -284,7 +267,7 @@ int main(int argc, char* argv[])
     ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, &ev);
     if (ret < 0) {
         fcloseall();
-        return error_helper(ERR_EP_CTL_ADD, strerror(errno), line_buf, inputs);
+        return error_helper(ERR_EP_CTL_ADD, strerror(errno), rw_objs, inputs);
     }
 
     // while loop for accept socket connections.
@@ -301,36 +284,77 @@ int main(int argc, char* argv[])
                     if (evlist[i].data.fd == connection_socket) {    
                         if ((fd = accept(connection_socket, (struct sockaddr *)&addr, &addr_len)) < 0) {
                             fcloseall();
-                            return error_helper(ERR_ACCEPT, strerror(errno), line_buf, inputs);
+                            return error_helper(ERR_ACCEPT, strerror(errno), rw_objs, inputs);
                         }
                         // register the new socket into epoll
-                        ev.events = EPOLLIN | EPOLLRDHUP;
+                        ev.events = EPOLLOUT | EPOLLRDHUP;
                         ev.data.fd = fd;
                         ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
                         if (ret < 0) {
                             fcloseall();
-                            return error_helper(ERR_EP_CTL_ADD, strerror(errno), line_buf, inputs);
+                            return error_helper(ERR_EP_CTL_ADD, strerror(errno), rw_objs, inputs);
                         }
+                        // assign a rw_obj for new session.
+                        data_rw_obj = rw_objs[connections_size];
+                        // initialize it
+                        data_rw_obj->fptr = inputs[connections_size];
+                        data_rw_obj->last_len = data_rw_obj->line_len = 0;
+                        data_rw_obj->line_buf = NULL;
+
                         if (++connections_size == inputs_size) {
                             ret = epoll_ctl(epoll_fd, EPOLL_CTL_DEL, connection_socket, NULL);
                             if (ret < SUCCESS) {
                                 fcloseall();
-                                return error_helper(ERR_EP_CTL_DEL, strerror(errno), line_buf, inputs);
+                                return error_helper(ERR_EP_CTL_DEL, strerror(errno), rw_objs, inputs);
                             }
                             close(connections_socket);
+                            // close the connection socket.
+                            printf("Closing connection socket %u.\n", connection_socket);
                         }
+                    // data from client.
                     }else {
                         fd = evlist[i].data.fd;
                         
-                        getline(line_buf,, )
-                        // write current fragment line to peer.
-                        write ()
-                        
+                        data_rw_obj = inputs[fd - connections_size - 1];
 
+                        // read data from client. (At most RD_BUF_SIZE)
+                        data_rw_obj->last_len += read(fd, data_rw_obj->line_buf + data_rw_obj->last_len, RD_BUF_SIZE - data_rw_obj->last_len);
+                        // search for a line, and do insert for each line.
+                        for (int i = 0, data_rw_obj->line_len = 0; i < data_rw_obj->last_len; ++i) {
+                            if (data_rw_obj->line_buf[i] == '\n'){
+                                strncpy(rd_buf, data_rw_obj->line_buf + data_rw_obj->line_len, i - data_rw_obj->line_len + 1);
+                                data_rw_obj->line_len = i + 1;
+                            }
+                            //TODO insert
+                            
+                        }
+                        // compact line_buf
+                        if (data_rw_obj->line_len > 0) {
+                            strncpy(data_rw_obj->line_buf, data_rw_obj->line_buf + data_rw_obj->line_len, data_rw_obj->last_len - data_rw_obj->line_len);
+                        }
                     }
                 // output is ready
                 } else if (evlist[i].events & EPOLLOUT) {
+                        fd = evlist[i].data.fd;
 
+                        // store the corresponding file pointer of current connection socket.
+                        data_rw_obj = inputs[fd - connections_size - 1];
+
+                        // client read from corresponding file pointer. 
+                        ret = read_and_send(data_rw_obj, fd);
+
+                        // the corresponding file is completely read.
+                        if (ret == -1) {
+                            // modify corresponding rw_obj to adjust for following reading.
+                            fclose(data_rw_obj->fptr);
+                            data_rw_obj->last_len = data_rw_obj->line_len = 0;
+                            data_rw_obj->line_buf = calloc(RD_BUF_SIZE, sizeof(char));
+
+                            // modify current socket so that it don't need to be written again.
+                            ev.events = EPOLLIN | EPOLLRDHUP;
+                            ev.data.fd = fd;
+                            epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &ev);
+                        }
                 // peer disconnected.
                 } else if (evlist[i].events & EPOLLRDHUP) {
                     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
@@ -340,15 +364,14 @@ int main(int argc, char* argv[])
         }
     } while (/*condition*/);
 
-    // close the connection socket.
-    printf("Closing connection socket %u.\n", connection_socket);
-    close(connection_socket);
-    
+    // print end point
+    printf("server finishes task.");
+
     // close files
     fcloseall();
 
     // free
-    free(line_buf);
+    free(rw_objs);
     free(inputs);
 
     return SUCCESS;
