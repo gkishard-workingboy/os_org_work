@@ -5,6 +5,11 @@ Zhikuan Wei
 Zhuroan Sun
 
 ## Server Design
+The client first check the arguments. If the argument is malformed, it prints the usage message,
+and returns an unique error code.
+
+Then it opens the file specified by the argument.
+
 
 ## Client Design
 The client first check the arguments. If the argument is malformed, it prints the usage message,
@@ -28,11 +33,14 @@ before line deliminater. After reading a complete line, it inserts the <int, cha
 a min heap. When it reads EOF, the library function will return -1 and it stops reading.
 
 Then it repeatedly extracts the minimum <int, char *> pair from the min heap and prints it to 
-the socket file stream until it the heap is empty and no more pair could be extracted. The 
-program has been successfully executed and returns 0 to indicate success.
+the socket file stream then free the <int, char *> pair until it the heap is empty and no more 
+pair could be extracted. The program has now been successfully executed and returns 0 to 
+indicate success.
 
 ## Build Instructions
 Run `make` to build `server` and `client`.
+Run `make server` to build `server` only.
+Run `make client` to build `client` only.
 Run `make clean` to clean.
 
 ## Testing and Evaluation
