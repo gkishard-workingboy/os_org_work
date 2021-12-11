@@ -4,6 +4,10 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
+#include <stdio.h>
+#include <string.h>
+#include "heap.h"
+
 // socket configs
 #define SOCKET_PROTOCAL 0
 
@@ -29,11 +33,15 @@ typedef enum error_code
 } error_code_t;
 
 /// print out the error.
-/// @param:
-/// - error_code: the error code of the error to print out.
-/// - message: any additional to print out, NULL if no additional message.
-/// @return: returns the error code.
+/// @param error_code: the error code of the error to print out.
+/// @param message: any additional to print out, NULL if no additional message.
+/// @return returns the error code.
 unsigned int error_handler(unsigned int error_code, char *message);
+
+/// read pairs of unsigned int and string, insert them into a min heap.
+/// @param stream: the file pointer to the data socket.
+/// @param root: the root of the min heap.
+int read_and_insert(FILE* stream, heap* root);
 
 /// main
 int main(int argc, char* argv[]);
