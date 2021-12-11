@@ -90,6 +90,9 @@ int main(int argc, char* argv[])
     // number of ready connections.
     int ready;
 
+    // array converting connection to rw_obj.
+    int *con2rw_obj; 
+
     // stores the file name.
     char file_name[NAME_MAX+1];
     
@@ -109,6 +112,8 @@ int main(int argc, char* argv[])
     size_t inputs_capacity = 4;
     // connections size
     size_t connections_size = 0;
+    // connections limit
+    size_t connections_limit;
     
     // stores the file descriptor for the sockets.
     unsigned int connection_socket;
@@ -201,6 +206,7 @@ int main(int argc, char* argv[])
         inputs[inputs_size-1] = fopen(file_name, "r");
         if (inputs[inputs_size-1] == NULL)
         {
+            fcloseall();
             // failed to open file.
             free(inputs);
             return error_handler(FAILED_TO_OPEN_INPUT, strerror(errno));
@@ -212,8 +218,12 @@ int main(int argc, char* argv[])
 
     rw_objs = calloc(inputs_size, sizeof(rw_obj));
     if (rw_objs == NULL) {
+        fcloseall();
         return error_helper(OUT_OF_MEMORY, NULL, inputs, NULL);
     }
+
+    // the limit of connections is input size
+    connections_limit = inputs_size;
 
     // convert port number to unsigned int.
     port_number = atoi(argv[PORT_NUMBER]);
@@ -262,6 +272,13 @@ int main(int argc, char* argv[])
         return error_helper(ERR_LISTEN, strerror(errno), rw_objs, inputs);
     }
 	printf("Start listening on connection socket %u.\n", connection_socket);
+
+    // allocate memory for con2rw_obj array
+    con2rw_obj = calloc(2*inputs_size + connection_socket, sizeof(int));
+    if (con2rw_obj == NULL) {
+        fcloseall();
+        return error_helper(OUT_OF_MEMORY, NULL, inputs, NULL);
+    }
     
     epoll_fd = epoll_create1(0);
     if (epoll_fd < 0) {
@@ -277,13 +294,14 @@ int main(int argc, char* argv[])
         return error_helper(ERR_EP_CTL_ADD, strerror(errno), rw_objs, inputs);
     }
 
+    // initialize heap.
     heap_create(&heap_root, 0, cmp_node);
 
     // while loop for accept socket connections.
     do {
         //epoll will block until a connection is ready for I/O
         if ((ready = epoll_wait(epoll_fd, evlist, EVENT_SIZE, -1)) > 0) {
-            if (((ready)) < 0 && errno != EINTR) {
+            if (ready < 0 && errno != EINTR) {
                 perror("epoll_wait wrong.");
             }
             for (int i = 0; i < ready; i++) {
@@ -303,6 +321,7 @@ int main(int argc, char* argv[])
                             fcloseall();
                             return error_helper(ERR_EP_CTL_ADD, strerror(errno), rw_objs, inputs);
                         }
+                        con2rw_obj[fd] = connections_size;
                         // assign a rw_obj for new session.
                         data_rw_obj = &rw_objs[connections_size];
                         // initialize it
@@ -324,7 +343,7 @@ int main(int argc, char* argv[])
                     }else {
                         fd = evlist[i].data.fd;
                         
-                        data_rw_obj = &rw_objs[fd - connections_size - 1];
+                        data_rw_obj = &rw_objs[con2rw_obj[fd]];
 
                         // read data from client. (At most RD_BUF_SIZE)
                         data_rw_obj->last_len += read(fd, data_rw_obj->line_buf + data_rw_obj->last_len, RD_BUF_SIZE - data_rw_obj->last_len);
@@ -371,7 +390,7 @@ int main(int argc, char* argv[])
                     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
                     close(fd);
                     // all tasks of client have been finished. 
-                    if (--connections_size == 0) {
+                    if (--connections_limit == 0) {
                         break;
                     }
                 }
