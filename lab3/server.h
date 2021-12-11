@@ -6,7 +6,7 @@
 
 // socket configs
 #define SOCKET_PROTOCAL 0
-#define SOCKET_BACKLOG_SIZE 10
+#define SOCKET_BACKLOG_SIZE 255
 
 // argument indices
 typedef enum argument_index
@@ -29,12 +29,12 @@ typedef enum error_code
     FAILED_TO_OPEN_OUTPUT, // failed to open the first file for write.
     FAILED_TO_OPEN_INPUT,  // failed to open one of the subsequent files for read.
     OUT_OF_MEMORY,    // out of memory
-	ERR_HOST_NAME,
-	ERR_SOCKET,
-	ERR_BIND,
-	ERR_LISTEN,
-	ERR_ACCEPT,
-	ERR_OPEN,
+    ERR_HOST_NAME,
+    ERR_SOCKET,
+    ERR_BIND,
+    ERR_LISTEN,
+    ERR_ACCEPT,
+    ERR_OPEN,
 } error_code_t;
 
 /// print out the error.

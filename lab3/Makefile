@@ -1,4 +1,14 @@
-all:	server.out
+targets = server client
 
-server.out:	server.c
+all: $(targets)
+
+server:	server.c
 	gcc $^ -o $@ -Wall
+
+client.:	client.c
+	gcc $^ -o $@ -Wall
+
+.phony:	clean
+
+clean:
+	rm $(targets) 
