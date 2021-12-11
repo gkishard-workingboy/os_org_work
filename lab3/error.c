@@ -22,7 +22,8 @@ static const char *error_message[] = {
 	"Failed to accept data socket",
 	"Failed to open data socket",
     "Failed to create epoll",
-    "Failed to control epoll",
+    "Failed to control epoll addition",
+    "Failed to control epoll deletion",
 };
 
 /// print out the error.

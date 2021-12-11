@@ -21,7 +21,8 @@ typedef enum error_code
 	ERR_ACCEPT,
 	ERR_OPEN,
     ERR_EP_CREATE,
-    ERR_EP_CTL,
+    ERR_EP_CTL_ADD,
+    ERR_EP_CTL_DEL,
 } error_code_t;
 
 // print out the error.
