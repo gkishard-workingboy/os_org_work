@@ -3,9 +3,7 @@
 
 #include "client.h"
 
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <errno.h>
 #include <unistd.h>
 // for socket(), bind()
@@ -18,7 +16,6 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-
 // defines error code handling protocol.
 // error messages
 static const char* error_message[] =
@@ -28,13 +25,14 @@ static const char* error_message[] =
     "Failed to get host name",
     "Failed to create data socket",
     "Failed to connect socket",
+    "Failed to open socket for read",
+    "Failed to open socket for write",
 };
 
 /// print out the error.
-/// @param:
-/// - error_code: the error code of the error to print out.
-/// - message: any additional to print out, NULL if no additional message.
-/// @return: returns the error code.
+/// @param error_code: the error code of the error to print out.
+/// @param message: any additional to print out, NULL if no additional message.
+/// @return returns the error code.
 unsigned int error_handler(unsigned int error_code, char *message)
 {
     if (error_code == INVALID_ARGUMENT)
@@ -67,29 +65,79 @@ unsigned int error_handler(unsigned int error_code, char *message)
     return error_code;
 }
 
+/// compares two keys
+int cmp_node(void* lhs, void* rhs)
+{
+    int l = *(int *)lhs;
+    int r = *(int *)rhs;
+    if (l == r) return 0;
+    if (l > r) return 1;
+    return -1;
+}
+
+/// read one pair of unsigned int and string and insert into the min heap.
+/// @param stream: the file pointer to the data socket.
+/// @param root: the root of the min heap.
+/// @return -1 upon failure, 0 upon success.
+int read_and_insert(FILE* stream, heap* root)
+{
+    // return value
+    int ret = 0;
+    // line number, used as key for the min heap.
+    int* key = (int*)malloc(sizeof(int));
+    // line buffer and len that holds the line
+    // used as value for the min heap.
+    char* line_buf = NULL;
+    unsigned int len = 0;
+    
+    // scan length of next line
+    ret = fscanf(stream, "%d", key);
+    if (ret < 0) {
+        // read failed.
+        return -1;
+    }
+    
+    // discard the space delim
+    ret = fgetc(stream);
+    if (ret < 0) {
+        // read failed.
+        return -1;
+    }
+    
+    // get one line from the input.
+    ret = getline(&line_buf, &len, stream);
+    if (ret < 0) {
+        // read failed.
+        return -1;
+    }
+    
+    // insert
+    heap_insert(root, key, line_buf);
+    
+    return len;
+}
+
 /// main
 int main(int argc, char* argv[])
 {
-    /* variables */
-    
     // stores the return value of system calls.
     int ret;
-
+    int current_len = 0;
+    int max_len = 0;
+    
+    /* sockets */
+    
     // stores the file descriptor for the sockets.
     unsigned int data_socket;
     // stores the internet domain socket address used.
     struct sockaddr_in name;
-    //// stores a file pointer to the socket.
-    //FILE * data_fp;
-    //// stores the data and converted data to send.
-    //unsigned int int_data;
+    // stores a file pointer to the socket.
+    FILE * data_fp;
 
     // stores the own host name.
     unsigned int port_number;
     // stores the host name and service name.
     char host_name[NI_MAXHOST], service_name[NI_MAXSERV];
-
-    /* body */
 
     // validate arguments
     if (argc != EXPECTED_ARGC)
@@ -132,5 +180,40 @@ int main(int argc, char* argv[])
     }
     printf("Connected to %s on port %s.\n", host_name, service_name);
     
+	// connected, open socket for read.
+	data_fp = fdopen(data_socket, "r+");
+	// on error, NULL is returned.
+	if (data_fp == NULL)
+    {
+        return error_handler(ERR_READ, strerror(errno));
+    }
+    
+    // create a min heap
+    heap root;
+    heap_create(&root, 0, cmp_node);
+    
+    // read from file until fail.
+    current_len = read_and_insert(data_fp, &root);
+    while (current_len >= 0) {
+        if (current_len > max_len) {
+            max_len = current_len;
+        }
+        current_len = read_and_insert(data_fp, &root);
+    }
+    
+    // write to socket.
+    int* key;
+    char* value;
+    ret = heap_delmin(&root, (void**)&key, (void**)&value);
+    while (ret) {
+        // the end of the string contains endline character.
+        fprintf(data_fp, "%d %s", *key, value);
+        ret = heap_delmin(&root, (void**)&key, (void**)&value);
+    }
+    
+    // free the min heap
+    heap_destroy(&root);
+    // close socket for write.
+    fclose(data_fp);
     return SUCCESS;
 }
