@@ -15,9 +15,11 @@ If any step fails, it prints an error message describing the error, frees any dy
 allocated resource, and returns an unique error code.
 
 After the client is connected to the server, it creates a min heap of <int, char *>
-pairs. We used [this library](https://github.com/armon/c-minheap-array) for the min heap.
-This allows us to insert a line and extract the minimum line in O(log n) time, which allows
-our program to run in O(n log n) time.
+pairs. We used [this implementation of priority queue as a heap stored in an array]
+(https://github.com/armon/c-minheap-array). The class pass an approriate comparasion 
+function to the constructor such that it is a min heap. This allows us to insert a line 
+and extract  the minimum line in O(log n) time, which allows our program to run in 
+O(n log n) time. See the `HEAP_LICENSE` file for the license of the heap library.
 
 The client wraps the socket in a file stream and uses higher level library functions for 
 reading and writing data to handle short read and short writes. It then allocates an int to 
