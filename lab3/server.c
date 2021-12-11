@@ -54,10 +54,21 @@ int main(int argc, char* argv[])
     // allocated dynamically on the heap at runtime.
     FILE **inputs;
     FILE **new;
+
+    // stores a file pointer as the corresponding source for specified connection. 
+    File *data_output;
+
+    // connections array
+    int *connections;
+
     // inputs size.
     size_t inputs_size = 0;
     // max inputs capacity.
     size_t inputs_capacity = 4;
+    // connections size
+    size_t connections_size = 0;
+    // max connections capacity.
+    size_t connections_capacity = 4;
     
 	// read from file
 	unsigned int current_len = 0;
@@ -247,7 +258,7 @@ int main(int argc, char* argv[])
     ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, &ev);
     if (ret < 0) {
         fcloseall();
-        return error_helper(ERR_EP_CTL, strerror(errno), line_buf, inputs);
+        return error_helper(ERR_EP_CTL_ADD, strerror(errno), line_buf, inputs);
     }
 
     // while loop for accept socket connections.
@@ -258,12 +269,11 @@ int main(int argc, char* argv[])
                 perror("epoll_wait wrong.")
             }
             for (int i = 0; i < ready; i++) {
-                evlist[i].data.fd;
+                // input is ready
                 if (evlist[i].events & EPOLLIN) {
-                    // input is ready
                     // new connection.
-                    if (evlist[i].data.fd == connection_socket) {
-                        if ((fd = accept(connection_socket, (struct sockaddr *)&addr, &)) < 0) {
+                    if (evlist[i].data.fd == connection_socket) {                
+                        if ((fd = accept(connection_socket, (struct sockaddr *)&addr, &addr_len)) < 0) {
                             fcloseall();
                             return error_helper(ERR_ACCEPT, strerror(errno), line_buf, inputs);
                         }
@@ -273,19 +283,32 @@ int main(int argc, char* argv[])
                         ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
                         if (ret < 0) {
                             fcloseall();
-                            return error_helper(ERR_EP_CTL, strerror(errno), line_buf, inputs);
+                            return error_helper(ERR_EP_CTL_ADD, strerror(errno), line_buf, inputs);
+                        }
+                        if (++connections_size == inputs_size) {
+                            ret = epoll_ctl(epoll_fd, EPOLL_CTL_DEL, connection_socket, NULL);
+                            if (ret < SUCCESS) {
+                                fcloseall();
+                                return error_helper(ERR_EP_CTL_DEL, strerror(errno), line_buf, inputs);
+                            }
+                            close(connections_socket);
                         }
                     }else {
-                        // peer disconnected.
                         fd = evlist[i].data.fd;
-                        if (evlist[i].events & EPOLLRDHUP) {
-                            epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
-                            close(fd);
-                        }
                         
-                        // send current fragment to peer.
+                        getline(line_buf,, )
+                        // write current fragment line to peer.
+                        write ()
                         
+
                     }
+                // output is ready
+                } else if (evlist[i].events & EPOLLOUT) {
+
+                // peer disconnected.
+                } else if (evlist[i].events & EPOLLRDHUP) {
+                    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+                    close(fd);
                 }
             }
         }
