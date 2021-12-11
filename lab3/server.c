@@ -2,6 +2,7 @@
 // defines the server.
 
 #include "server.h"
+#include "error.h"
 
 // uses GNU extension reallocarray() and fcloseall()
 #define _GNU_SOURCE
@@ -19,74 +20,50 @@
 #include <netinet/ip.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+//for epoll
+#include <sys/epoll.h>
 
 // defines the maximum number of characters in a file name.
 // 255 for linux.
 #define NAME_MAX 255
 
-// defines error code handling protocol.
-// error messages
-static const char *error_message[] = {
-    "Success",
-    "Invalid argument(s)",
-    "Failed to open argument file for read",
-    "Empty file",
-    "Failed to open output file for write",
-    "Failed to open input file for read",
-    "Out of memory",
-    "Failed to get host name",
-    "Failed to create connection socket",
-    "Failed to bind socket",
-    "Failed to listen to socket",
-    "Failed to accept data socket",
-    "Failed to open data socket",
-};
-
-/// print out the error.
+/// read an input file and send it through a socket.
 /// @param:
-/// - error_code: the error code of the error to print out.
-/// - message: any additional to print out, NULL if no additional message.
-/// @return: returns the error code.
-unsigned int error_handler(unsigned int error_code, char *message)
+/// - in: the file pointer to the input.
+/// - out: the file pointer to the socket.
+void read_and_send(FILE* in, FILE* out)
 {
-    if (error_code == INVALID_ARGUMENT)
-    {
-        // invalid argument.
-        fprintf(stderr, "%s\n", error_message[error_code]);
-        // print usage message.
-        if (message == NULL)
-        {
-            // no additional message, program fault.
-            fprintf(stderr, "Usage: [program] [file] [port]\n");
-        }
-        else
-        {
-            // additional message.
-            fprintf(stderr, "Usage: %s [file] [port]\n", message);
-        }
+    char* line_buf = NULL;
+    int current_len = 0;
+    unsigned int max_len = 0;
+    
+    // gets the next line from the input.
+    current_len = getline(&line_buf, &max_len, in);
+    while (current_len >= 0) {
+        // writes it to the output.
+        fprintf(out, "%.*s", current_len, line_buf);
+        // gets the next line from the input.
+        current_len = getline(&line_buf, &max_len, in);
     }
-    else {
-        // program error, print error message.
-        if (message == NULL) {
-            // no additional message.
-            fprintf(stderr, "%s\n", error_message[error_code]);
-        } else
-        {
-            // additional message.
-            fprintf(stderr, "%s: %s\n", error_message[error_code], message);
-        }
-    }
-    return error_code;
+    
+    free(line_buf);
 }
-
+    
 /// main
 int main(int argc, char* argv[])
 {
-    /* variables */
+	// stores the return value of system calls.
+	int ret;
+
+    // epoll file descriptor
+    int epoll_fd;
+
+    // store a file descriptor, usually one that currently will be used for I/O.
+    int fd;
     
-    // stores the return value of system calls.
-    int ret;
-    
+    // number of ready connections.
+    int ready;
+
     // stores the file name.
     char file_name[NAME_MAX+1];
     
@@ -105,6 +82,7 @@ int main(int argc, char* argv[])
     // max inputs capacity.
     size_t inputs_capacity = 4;
     
+    /* remove this */
     // read from file
     unsigned int current_len = 0;
     unsigned int max_len = 0;
@@ -128,6 +106,8 @@ int main(int argc, char* argv[])
     char host_name[NI_MAXHOST], service_name[NI_MAXSERV];
 
     /* body */
+
+    struct epoll_event event, evlist[EVENT_SIZE];
 
     // validate arguments
     if (argc != EXPECTED_ARGC)
@@ -242,13 +222,10 @@ int main(int argc, char* argv[])
     // on error, -1 is returned.
     if (connection_socket < SUCCESS)
     {
-        // close files
+        // close files.
         fcloseall();
-
-        // free
-        free(line_buf);
-        free(inputs);
-        return error_handler(ERR_SOCKET, strerror(errno));
+        // free heap memory.
+        return error_helper(ERR_SOCKET, strerror(errno), line_buf, inputs);
     }
     printf("Created connection socket %u.\n", connection_socket);
     
@@ -257,13 +234,8 @@ int main(int argc, char* argv[])
     // on error, -1 is returned.
     if (ret < SUCCESS)
     {
-        // close files
         fcloseall();
-
-        // free
-        free(line_buf);
-        free(inputs);
-        return error_handler(ERR_HOST_NAME, strerror(errno));
+        return error_helper(ERR_LISTEN, strerror(errno), line_buf, inputs);
     }
     printf("Hosting on %s on port %u.\n", server_host_name, port_number);
     
@@ -276,13 +248,8 @@ int main(int argc, char* argv[])
     // on error, -1 is returned.
     if (ret < SUCCESS)
     {
-        // close files
         fcloseall();
-
-        // free
-        free(line_buf);
-        free(inputs);
-        return error_handler(ERR_BIND, strerror(errno));
+        return error_helper(ERR_BIND, strerror(errno), line_buf, inputs);
     }
     
     // start listening on connection socket.
@@ -290,15 +257,65 @@ int main(int argc, char* argv[])
     // on error, -1 is returned.
     if (ret < SUCCESS)
     {
-        // close files
         fcloseall();
-
-        // free
-        free(line_buf);
-        free(inputs);
-        return error_handler(ERR_LISTEN, strerror(errno));
+        return error_helper(ERR_LISTEN, strerror(errno), line_buf, inputs);
     }
-    printf("Start listening on connection socket %u.\n", connection_socket);
+	printf("Start listening on connection socket %u.\n", connection_socket);
+    
+    epoll_fd = epoll_create1(0);
+    if (epoll_fd < 0) {
+        fcloseall();
+        return error_helper(ERR_EP_CREATE, strerror(errno), line_buf, inputs);
+    }
+
+    ev.data.fd = connection_socket;
+    ev.events = EPOLLIN;
+    ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, &ev);
+    if (ret < 0) {
+        fcloseall();
+        return error_helper(ERR_EP_CTL, strerror(errno), line_buf, inputs);
+    }
+
+    // while loop for accept socket connections.
+    do {
+        //epoll will block until a connection is ready for I/O
+        if ((ready = epoll_wait(epoll_fd, evlist, EVENT_SIZE, -1)) > 0) {
+            if (((ready)) < 0 && errno != EINTR) {
+                perror("epoll_wait wrong.");
+            }
+            for (int i = 0; i < ready; i++) {
+                evlist[i].data.fd;
+                if (evlist[i].events & EPOLLIN) {
+                    // input is ready
+                    // new connection.
+                    if (evlist[i].data.fd == connection_socket) {
+                        if ((fd = accept(connection_socket, (struct sockaddr *)&addr, &addr_len)) < 0) {
+                            fcloseall();
+                            return error_helper(ERR_ACCEPT, strerror(errno), line_buf, inputs);
+                        }
+                        // register the new socket into epoll
+                        ev.events = EPOLLIN | EPOLLRDHUP;
+                        ev.data.fd = fd;
+                        ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
+                        if (ret < 0) {
+                            fcloseall();
+                            return error_helper(ERR_EP_CTL, strerror(errno), line_buf, inputs);
+                        }
+                    } else {
+                        // peer disconnected.
+                        fd = evlist[i].data.fd;
+                        if (evlist[i].events & EPOLLRDHUP) {
+                            epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+                            close(fd);
+                        }
+                        
+                        // send current fragment to peer.
+                        
+                    }
+                }
+            }
+        }
+    } while (/*condition*/);
 
     // close the connection socket.
     printf("Closing connection socket %u.\n", connection_socket);
