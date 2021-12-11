@@ -27,6 +27,29 @@
 // 255 for linux.
 #define NAME_MAX 255
 
+/// read an input file and send it through a socket.
+/// @param:
+/// - in: the file pointer to the input.
+/// - out: the file pointer to the socket.
+void read_and_send(FILE* in, FILE* out)
+{
+    char* line_buf = NULL;
+    int current_len = 0;
+    unsigned int max_len = 0;
+    
+    // gets the next line from the input.
+    current_len = getline(&line_buf, &max_len, in);
+    while (current_len >= 0) {
+        // writes it to the output.
+        fprintf(out, "%.*s", current_len, line_buf);
+        // gets the next line from the input.
+        current_len = getline(&line_buf, &max_len, in);
+    }
+    
+    free(line_buf);
+}
+    
+/// main
 int main(int argc, char* argv[])
 {
 	// stores the return value of system calls.
@@ -70,27 +93,30 @@ int main(int argc, char* argv[])
     // max connections capacity.
     size_t connections_capacity = 4;
     
-	// read from file
-	unsigned int current_len = 0;
-	unsigned int max_len = 0;
-	char* line_buf = NULL;
+    /* remove this */
+    // read from file
+    unsigned int current_len = 0;
+    unsigned int max_len = 0;
+    char* line_buf = NULL;
     
     // stores the file descriptor for the sockets.
-	unsigned int connection_socket, data_socket;
-	// stores the internet domain socket address used.
-	struct sockaddr_in name;
-	// stores the internet domain socket address accepted.
-	struct sockaddr_in addr;
-	socklen_t addr_len;
-	// stores a file pointer to the socket.
-	FILE * data_fp;
-	
-	// stores the own host name.
-	char server_host_name[NI_MAXHOST];
-	// stores the own host name.
+    unsigned int connection_socket, data_socket;
+    // stores the internet domain socket address used.
+    struct sockaddr_in name;
+    // stores the internet domain socket address accepted.
+    struct sockaddr_in addr;
+    socklen_t addr_len;
+    // stores a file pointer to the socket.
+    FILE * data_fp;
+    
+    // stores the own host name.
+    char server_host_name[NI_MAXHOST];
+    // stores the own host name.
     unsigned int port_number;
-	// stores the socket's host name and service name.
-	char host_name[NI_MAXHOST], service_name[NI_MAXSERV];
+    // stores the socket's host name and service name.
+    char host_name[NI_MAXHOST], service_name[NI_MAXSERV];
+
+    /* body */
 
     struct epoll_event event, evlist[EVENT_SIZE];
 
@@ -143,13 +169,14 @@ int main(int argc, char* argv[])
             // reallocate inputs to be twice as big.
             inputs_capacity = inputs_capacity * 2; // optimize to be << 1.
             new = reallocarray(inputs, inputs_capacity, sizeof(FILE*));
+            // free the old pointer.
+            free(inputs);
             if (new == NULL)
             {
                 // reallocarray failed.
                 fcloseall();
                 return error_handler(OUT_OF_MEMORY, NULL);
             }
-            free(inputs);
             inputs = new;
         }
         // open input file for read
@@ -200,47 +227,46 @@ int main(int argc, char* argv[])
     
     // convert port number to unsigned int.
     port_number = atoi(argv[PORT_NUMBER]);
-	
-	// create a socket for local connection.
-	connection_socket = socket(AF_INET, SOCK_STREAM, SOCKET_PROTOCAL);
-	// on error, -1 is returned.
-	if (connection_socket < SUCCESS)
+    
+    // create a socket for local connection.
+    connection_socket = socket(AF_INET, SOCK_STREAM, SOCKET_PROTOCAL);
+    // on error, -1 is returned.
+    if (connection_socket < SUCCESS)
     {
         // close files.
         fcloseall();
         // free heap memory.
         return error_helper(ERR_SOCKET, strerror(errno), line_buf, inputs);
     }
-	printf("Created connection socket %u.\n", connection_socket);
-	
-	// connected, get name info
-	ret = gethostname(server_host_name, sizeof(server_host_name));
-	// on error, -1 is returned.
-	if (ret < SUCCESS)
+    printf("Created connection socket %u.\n", connection_socket);
+    
+    // connected, get name info
+    ret = gethostname(server_host_name, sizeof(server_host_name));
+    // on error, -1 is returned.
+    if (ret < SUCCESS)
     {
         fcloseall();
         return error_helper(ERR_LISTEN, strerror(errno), line_buf, inputs);
     }
-	printf("Hosting on %s on port %u.\n", server_host_name, port_number);
-	
-	// create the communications channel.
-	memset(&name, 0, sizeof(struct sockaddr_in));
-	name.sin_family = AF_INET;
-	name.sin_port = htons(port_number);
+    printf("Hosting on %s on port %u.\n", server_host_name, port_number);
+    
+    // create the communications channel.
+    memset(&name, 0, sizeof(struct sockaddr_in));
+    name.sin_family = AF_INET;
+    name.sin_port = htons(port_number);
     name.sin_addr.s_addr = INADDR_ANY;
-	ret = bind(connection_socket, (const struct sockaddr *) &name,
-                      sizeof(struct sockaddr_in));
-	// on error, -1 is returned.
-	if (ret < SUCCESS)
+    ret = bind(connection_socket, (const struct sockaddr *) &name, sizeof(struct sockaddr_in));
+    // on error, -1 is returned.
+    if (ret < SUCCESS)
     {
         fcloseall();
         return error_helper(ERR_BIND, strerror(errno), line_buf, inputs);
     }
-	
-	// start listening on connection socket.
-	ret = listen(connection_socket, SOCKET_BACKLOG_SIZE);
-	// on error, -1 is returned.
-	if (ret < SUCCESS)
+    
+    // start listening on connection socket.
+    ret = listen(connection_socket, SOCKET_BACKLOG_SIZE);
+    // on error, -1 is returned.
+    if (ret < SUCCESS)
     {
         fcloseall();
         return error_helper(ERR_LISTEN, strerror(errno), line_buf, inputs);
@@ -264,15 +290,15 @@ int main(int argc, char* argv[])
     // while loop for accept socket connections.
     do {
         //epoll will block until a connection is ready for I/O
-        if ((ready = epoll_wait(epoll_fd, evlist, EVENTSIZE, -1)) > 0) {
-            if (ready)) < 0 && errno != EINTR) {
-                perror("epoll_wait wrong.")
+        if ((ready = epoll_wait(epoll_fd, evlist, EVENT_SIZE, -1)) > 0) {
+            if (((ready)) < 0 && errno != EINTR) {
+                perror("epoll_wait wrong.");
             }
             for (int i = 0; i < ready; i++) {
                 // input is ready
                 if (evlist[i].events & EPOLLIN) {
                     // new connection.
-                    if (evlist[i].data.fd == connection_socket) {                
+                    if (evlist[i].data.fd == connection_socket) {    
                         if ((fd = accept(connection_socket, (struct sockaddr *)&addr, &addr_len)) < 0) {
                             fcloseall();
                             return error_helper(ERR_ACCEPT, strerror(errno), line_buf, inputs);
@@ -312,11 +338,10 @@ int main(int argc, char* argv[])
                 }
             }
         }
-    }
-
+    } while (/*condition*/);
 
     // close the connection socket.
-	printf("Closing connection socket %u.\n", connection_socket);
+    printf("Closing connection socket %u.\n", connection_socket);
     close(connection_socket);
     
     // close files
