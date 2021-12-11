@@ -108,7 +108,7 @@ int read_and_insert(FILE* stream, heap* root)
     }
     
     // insert
-    heap_insert(root, &key, &line_buf);
+    heap_insert(root, key, line_buf);
     
     return len;
 }
@@ -198,10 +198,10 @@ int main(int argc, char* argv[])
     
     // write to output file.
     int* key;
-    char** value;
+    char* value;
     ret = heap_delmin(&root, (void**)&key, (void**)&value);
     while (ret) {
-        fprintf(output, "%d %s\n", *key, *value);
+        fprintf(output, "%d %s", *key, value);
         ret = heap_delmin(&root, (void**)&key, (void**)&value);
     }
     
