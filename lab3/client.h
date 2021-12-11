@@ -30,6 +30,8 @@ typedef enum error_code
     ERR_HOST_NAME,
     ERR_SOCKET,
     ERR_CONNECT,
+    ERR_READ,
+    ERR_WRITE,
 } error_code_t;
 
 /// print out the error.
