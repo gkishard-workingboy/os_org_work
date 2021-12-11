@@ -5,25 +5,6 @@
 #include "error.h"
 #include "heap.h"
 
-// uses GNU extension reallocarray() and fcloseall()
-#define _GNU_SOURCE
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <string.h>
-#include <unistd.h>
-// for socket(), bind()
-#include <sys/types.h>
-#include <sys/socket.h>
-// for unix
-#include <sys/un.h>
-// for remote
-#include <netinet/ip.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-//for epoll
-#include <sys/epoll.h>
-
 // defines the maximum number of characters in a file name.
 // 255 for linux.
 #define NAME_MAX 255
@@ -38,14 +19,13 @@ int read_and_send(rw_obj *in, int out)
     if (in->last_len < in->line_len) {
         in->last_len += write(out, in->line_buf + in->last_len, in->line_len - in->last_len);
     } else {
-        free(in->line_buf);
         // gets the next line from the input.
-        in->line_len = in->last_lengetline(&in->line_buf, &in->line_len, in->fptr);
+        in->line_len = getline(&in->line_buf, &in->line_len, in->fptr);
         if (in->line_len == -1) {
             fclose(in->fptr);
         } else {
             // write a line to the output.
-            in->last_len = write(out, in->line_buf, current_len);
+            in->last_len = write(out, in->line_buf, in->line_len);
         }
     }
     return in->line_len;
@@ -77,13 +57,13 @@ int insert_string(char* line, unsigned int len, heap* root)
     char* line_buf = NULL;
 
     for (i = 0; i < len; ++i) {
-        if (rd_buf[i] == ' ') {
+        if (line[i] == ' ') {
             // seperate line number and line contents.
-            rd_buf[i] = '\0';
-            key = atoi(rd_buf);
+            line[i] = '\0';
+            *key = atoi(line);
             // copy line content into a new string.
             line_buf = calloc(len - i, sizeof(char));
-            strncpy(line_buf, rd_buf[i+1], len - i - 1);
+            strncpy(line_buf, line + i + 1, len - i - 1);
             // add null terminator to the end of string.
             line_buf[len - i] = '\0';
             break;
@@ -92,15 +72,8 @@ int insert_string(char* line, unsigned int len, heap* root)
     // insert such line into heap.
     heap_insert(root, key, line_buf);
 
-    return i == len - 1 ? -1 : 0;
+    return (i == len - 1) ? -1 : 0;
 }
-
-typedef struct read_write_object {
-    unsigned int last_len;
-    unsigned int line_len;
-    char* line_buf;
-    FILE* fptr;
-} rw_obj;
     
 /// main
 int main(int argc, char* argv[])
@@ -129,10 +102,6 @@ int main(int argc, char* argv[])
     // stores an array of file pointers to the input files specified by the initial input file.
     // allocated dynamically on the heap at runtime.
     FILE **inputs;
-    FILE **new;
-
-    // stores a file pointer as the corresponding source for specified connection. 
-    File **data_output;
 
     // inputs size.
     size_t inputs_size = 0;
@@ -141,21 +110,13 @@ int main(int argc, char* argv[])
     // connections size
     size_t connections_size = 0;
     
-    /* remove this */
-    // read from file
-    unsigned int current_len = 0;
-    unsigned int max_len = 0;
-    char* line_buf = NULL;
-    
     // stores the file descriptor for the sockets.
-    unsigned int connection_socket, data_socket;
+    unsigned int connection_socket;
     // stores the internet domain socket address used.
     struct sockaddr_in name;
     // stores the internet domain socket address accepted.
     struct sockaddr_in addr;
     socklen_t addr_len;
-    // stores a file pointer to the socket.
-    FILE * data_fp;
     
     // stores the line data read from the socket.
     char rd_buf[RD_BUF_SIZE];
@@ -163,8 +124,6 @@ int main(int argc, char* argv[])
     char server_host_name[NI_MAXHOST];
     // stores the own host name.
     unsigned int port_number;
-    // stores the socket's host name and service name.
-    char host_name[NI_MAXHOST];
 
     // store an array of rw_obj containing corresponding rw_obj for each socket.
     rw_obj *rw_objs;
@@ -174,10 +133,10 @@ int main(int argc, char* argv[])
     // a min heap, initialized later.
     heap heap_root;
     // heap variable bundle.
-    int* keys;
+    int* key;
     char* value;
 
-    struct epoll_event event, evlist[EVENT_SIZE];
+    struct epoll_event ev, evlist[EVENT_SIZE];
 
 
     /* body */
@@ -230,16 +189,13 @@ int main(int argc, char* argv[])
         {
             // reallocate inputs to be twice as big.
             inputs_capacity = inputs_capacity * 2; // optimize to be << 1.
-            new = reallocarray(inputs, inputs_capacity, sizeof(FILE*));
-            // free the old pointer.
-            free(inputs);
-            if (new == NULL)
+            inputs = reallocarray(inputs, inputs_capacity, sizeof(FILE*));
+            if (inputs == NULL)
             {
                 // reallocarray failed.
                 fcloseall();
                 return error_handler(OUT_OF_MEMORY, NULL);
             }
-            inputs = new;
         }
         // open input file for read
         inputs[inputs_size-1] = fopen(file_name, "r");
@@ -315,7 +271,7 @@ int main(int argc, char* argv[])
 
     ev.data.fd = connection_socket;
     ev.events = EPOLLIN;
-    ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, &ev);
+    ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, connection_socket, &ev);
     if (ret < 0) {
         fcloseall();
         return error_helper(ERR_EP_CTL_ADD, strerror(errno), rw_objs, inputs);
@@ -348,7 +304,7 @@ int main(int argc, char* argv[])
                             return error_helper(ERR_EP_CTL_ADD, strerror(errno), rw_objs, inputs);
                         }
                         // assign a rw_obj for new session.
-                        data_rw_obj = rw_objs[connections_size];
+                        data_rw_obj = &rw_objs[connections_size];
                         // initialize it
                         data_rw_obj->fptr = inputs[connections_size];
                         data_rw_obj->last_len = data_rw_obj->line_len = 0;
@@ -360,7 +316,7 @@ int main(int argc, char* argv[])
                                 fcloseall();
                                 return error_helper(ERR_EP_CTL_DEL, strerror(errno), rw_objs, inputs);
                             }
-                            close(connections_socket);
+                            close(connection_socket);
                             // close the connection socket.
                             printf("Closing connection socket %u.\n", connection_socket);
                         }
@@ -368,18 +324,19 @@ int main(int argc, char* argv[])
                     }else {
                         fd = evlist[i].data.fd;
                         
-                        data_rw_obj = inputs[fd - connections_size - 1];
+                        data_rw_obj = &rw_objs[fd - connections_size - 1];
 
                         // read data from client. (At most RD_BUF_SIZE)
                         data_rw_obj->last_len += read(fd, data_rw_obj->line_buf + data_rw_obj->last_len, RD_BUF_SIZE - data_rw_obj->last_len);
                         // search for a line, and do insert for each line.
-                        for (int i = 0, data_rw_obj->line_len = 0; i < data_rw_obj->last_len; ++i) {
-                            if (data_rw_obj->line_buf[i] == '\n'){
-                                strncpy(rd_buf, data_rw_obj->line_buf + data_rw_obj->line_len, i - data_rw_obj->line_len + 1);
+                        data_rw_obj->line_len = 0;
+                        for (int j = 0; j < data_rw_obj->last_len; ++j) {
+                            if (data_rw_obj->line_buf[j] == '\n'){
+                                strncpy(rd_buf, data_rw_obj->line_buf + data_rw_obj->line_len, j - data_rw_obj->line_len + 1);
                                 // insert line into heap.
-                                insert_string(rd_buf, i - data_rw_obj->line_buf + 1, &heap_root);
+                                insert_string(rd_buf, j - data_rw_obj->line_len + 1, &heap_root);
                                 // lets start searching for more line.
-                                data_rw_obj->line_len = i + 1;
+                                data_rw_obj->line_len = j + 1;
                             }
                         }
                         // compact line_buf
@@ -392,7 +349,7 @@ int main(int argc, char* argv[])
                         fd = evlist[i].data.fd;
 
                         // store the corresponding file pointer of current connection socket.
-                        data_rw_obj = inputs[fd - connections_size - 1];
+                        data_rw_obj = &rw_objs[fd - connections_size - 1];
 
                         // client read from corresponding file pointer. 
                         ret = read_and_send(data_rw_obj, fd);
@@ -433,7 +390,7 @@ int main(int argc, char* argv[])
     }
 
     // free the min heap
-    heap_destroy(&root);
+    heap_destroy(&heap_root);
 
     // print end point
     printf("server finishes task.");

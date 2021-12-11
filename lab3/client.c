@@ -208,6 +208,9 @@ int main(int argc, char* argv[])
     while (ret) {
         // the end of the string contains endline character.
         fprintf(data_fp, "%d %s", *key, value);
+        // free the key, value pair to avoid dangling pointers.
+        free(key);
+        free(value);
         ret = heap_delmin(&root, (void**)&key, (void**)&value);
     }
     

@@ -32,4 +32,6 @@ typedef enum error_code
 // @return: returns the error code.
 unsigned int error_handler(unsigned int error_code, char *message);
 
+unsigned int error_helper(unsigned int error_code, char* message, void* arg1, void *arg2);
+
 #endif /* ERROR_H */
