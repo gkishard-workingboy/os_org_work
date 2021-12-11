@@ -20,6 +20,8 @@ static const char *error_message[] = {
 	"Failed to listen to socket",
 	"Failed to accept data socket",
 	"Failed to open data socket",
+    "Failed to create epoll",
+    "Failed to control epoll",
 };
 
 // print out the error.
@@ -57,4 +59,10 @@ unsigned int error_handler(unsigned int error_code, char *message)
         }
     }
     return error_code;
+}
+
+unsigned int error_helper(unsigned int error_code, char* message, void* arg1, void *arg2) {
+    free(arg1);
+    free(arg2);
+    return error_handler(error_code, NULL);
 }

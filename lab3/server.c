@@ -20,6 +20,8 @@
 #include <netinet/ip.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+//for epoll
+#include <sys/epoll.h>
 
 // defines the maximum number of characters in a file name.
 // 255 for linux.
@@ -29,7 +31,16 @@ int main(int argc, char* argv[])
 {
 	// stores the return value of system calls.
 	int ret;
+
+    // epoll file descriptor
+    int epoll_fd;
+
+    // store a file descriptor, usually one that currently will be used for I/O.
+    int fd;
     
+    // number of ready connections.
+    int ready;
+
     // stores the file name.
     char file_name[NAME_MAX+1];
     
@@ -69,6 +80,8 @@ int main(int argc, char* argv[])
     unsigned int port_number;
 	// stores the socket's host name and service name.
 	char host_name[NI_MAXHOST], service_name[NI_MAXSERV];
+
+    struct epoll_event event, evlist[EVENT_SIZE];
 
     // validate arguments
     if (argc != EXPECTED_ARGC)
@@ -119,7 +132,6 @@ int main(int argc, char* argv[])
             // reallocate inputs to be twice as big.
             inputs_capacity = inputs_capacity * 2; // optimize to be << 1.
             new = reallocarray(inputs, inputs_capacity, sizeof(FILE*));
-            free(inputs);
             if (new == NULL)
             {
                 // reallocarray failed.
@@ -183,13 +195,10 @@ int main(int argc, char* argv[])
 	// on error, -1 is returned.
 	if (connection_socket < SUCCESS)
     {
-        // close files
+        // close files.
         fcloseall();
-
-        // free
-        free(line_buf);
-        free(inputs);
-        return error_handler(ERR_SOCKET, strerror(errno));
+        // free heap memory.
+        return error_helper(ERR_SOCKET, strerror(errno), line_buf, inputs);
     }
 	printf("Created connection socket %u.\n", connection_socket);
 	
@@ -198,13 +207,8 @@ int main(int argc, char* argv[])
 	// on error, -1 is returned.
 	if (ret < SUCCESS)
     {
-        // close files
         fcloseall();
-
-        // free
-        free(line_buf);
-        free(inputs);
-        return error_handler(ERR_HOST_NAME, strerror(errno));
+        return error_helper(ERR_LISTEN, strerror(errno), line_buf, inputs);
     }
 	printf("Hosting on %s on port %u.\n", server_host_name, port_number);
 	
@@ -218,13 +222,8 @@ int main(int argc, char* argv[])
 	// on error, -1 is returned.
 	if (ret < SUCCESS)
     {
-        // close files
         fcloseall();
-
-        // free
-        free(line_buf);
-        free(inputs);
-        return error_handler(ERR_BIND, strerror(errno));
+        return error_helper(ERR_BIND, strerror(errno), line_buf, inputs);
     }
 	
 	// start listening on connection socket.
@@ -232,16 +231,67 @@ int main(int argc, char* argv[])
 	// on error, -1 is returned.
 	if (ret < SUCCESS)
     {
-        // close files
         fcloseall();
-
-        // free
-        free(line_buf);
-        free(inputs);
-        return error_handler(ERR_LISTEN, strerror(errno));
+        return error_helper(ERR_LISTEN, strerror(errno), line_buf, inputs);
     }
 	printf("Start listening on connection socket %u.\n", connection_socket);
     
+    epoll_fd = epoll_create1(0);
+    if (epoll_fd < 0) {
+        fcloseall();
+        return error_helper(ERR_EP_CREATE, strerror(errno), line_buf, inputs);
+    }
+
+    ev.data.fd = connection_socket;
+    ev.events = EPOLLIN;
+    ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, &ev);
+    if (ret < 0) {
+        fcloseall();
+        return error_helper(ERR_EP_CTL, strerror(errno), line_buf, inputs);
+    }
+
+    // while loop for accept socket connections.
+    do {
+        //epoll will block until a connection is ready for I/O
+        if ((ready = epoll_wait(epoll_fd, evlist, EVENTSIZE, -1)) > 0) {
+            if (ready)) < 0 && errno != EINTR) {
+                perror("epoll_wait wrong.")
+            }
+            for (int i = 0; i < ready; i++) {
+                evlist[i].data.fd;
+                if (evlist[i].events & EPOLLIN) {
+                    // input is ready
+                    // new connection.
+                    if (evlist[i].data.fd == connection_socket) {
+                        if ((fd = accept(connection_socket, (struct sockaddr *)&addr, &)) < 0) {
+                            fcloseall();
+                            return error_helper(ERR_ACCEPT, strerror(errno), line_buf, inputs);
+                        }
+                        // register the new socket into epoll
+                        ev.events = EPOLLIN | EPOLLRDHUP;
+                        ev.data.fd = fd;
+                        ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
+                        if (ret < 0) {
+                            fcloseall();
+                            return error_helper(ERR_EP_CTL, strerror(errno), line_buf, inputs);
+                        }
+                    }else {
+                        // peer disconnected.
+                        fd = evlist[i].data.fd;
+                        if (evlist[i].events & EPOLLRDHUP) {
+                            epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+                            close(fd);
+                        }
+                        
+                        // send current fragment to peer.
+                        
+                    }
+                }
+            }
+        }
+    }
+
+
     // close the connection socket.
 	printf("Closing connection socket %u.\n", connection_socket);
     close(connection_socket);

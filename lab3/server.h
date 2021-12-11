@@ -16,5 +16,6 @@ typedef enum argument_index
 // socket configs
 #define SOCKET_PROTOCAL 0
 #define SOCKET_BACKLOG_SIZE 10
+#define EVENT_SIZE 5
 
 #endif /* SERVER_H */
