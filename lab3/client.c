@@ -206,9 +206,6 @@ int main(int argc, char* argv[])
         current_len = read_and_insert(data_fp, &root);
     }
     
-    // close socket for write.
-    fclose(data_fp);
-    
     // write to socket.
     int* key;
     char* value;
@@ -238,6 +235,9 @@ int main(int argc, char* argv[])
     
     // free the min heap
     heap_destroy(&root);
+    
+    // close socket for write.
+    fclose(data_fp);
     // close data socket.
     close(data_socket);
     return SUCCESS;
