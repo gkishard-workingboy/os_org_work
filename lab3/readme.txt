@@ -1,14 +1,36 @@
 # Lab 3
 
 ## Group Members
-Zhikuan Wei
-Zhuroan Sun
+Zhikuan Wei <w.zhikuan@wustl.edu>
+Zhuroan Sun <zhuoran.sun@wustl.edu>
 
 ## Server Design
-The client first check the arguments. If the argument is malformed, it prints the usage message,
+The server first check the arguments. If the argument is malformed, it prints the usage message,
 and returns an unique error code.
 
-Then it opens the file specified by the argument.
+Then it opens the file specified by the argument in sequential order, and stores them into a 
+dynamic length file pointer array. And the size of the file pointer array is also the size of 
+connections we need. Then we create socket for listen incomming connection, and applying the 
+epoll as the demultiplexer. and also use the min heap as the sorting data structure
+(https://github.com/armon/c-minheap-array). First we register the listenning socket into epoll 
+and epoll_wait function will give us the file descriptor ready for I/O operation. If the ready 
+file descriptor is listenning socket, then we will accept the new connection and create a corresponding
+rw_obj to it, also store such rw_obj in the rw_obj array, and store the corresponding index to con2rw_obj
+array to make future access more efficient.
+
+A normal connection will first be written by server, and we use the rw_obj to record how much data
+has been written to prevent short-write happens. After all lines of that file being sent, we will 
+fclose that file pointer and prepare the rw_obj for reading, and also change the event of connection
+socket for input and disconnection. Then if socket is sending data back, our demultiplexer will 
+detect such notification and server will read the data from that socket, in case of short-read, we 
+store the raw data into rw_obj in a stream manner and search line from it, at last, we will compact 
+the buffer inside the rw_obj for next reading. Each time we find a line from the buffer inside rw_obj,
+we will easily separate line number and line content, then take number as the key content as the value 
+to insert into min heap. 
+
+After all clients finish their works, server will output all line content into an ouptut file in sorting order
+by using the heap sort.
+
 
 
 ## Client Design
@@ -48,7 +70,15 @@ We built and tested our code modularly. When we tested our min heap implementati
 we found that it prints uninitialized value to the output. We realized that it requires
 the data we passed to the insert function to be a pointer to the dynamically allocated object.
 
-## Efforts
-Zhikuan Wei
+We ran the test for jabberwocky sample input, and at the beginning we notices some malloc error 
+like invalid next, also with double free error. After we fix that, we notices that the client cannot
+know when is the time to stop receive messages, so we design an STOP string to denote the end of 
+this communication. Last, we find our writing from sever to client works well while the way 
+back works badly. After long time finding the problem, we finally find out that the problem is because
+client fclose its File pointer early before the client wirte the message back. After all, our 
+client-server works well and writes the sorted lines to the output file.
+
+## Development Efforts
+Zhikuan Wei 16+ hours
 Zhuroan Sun
 
