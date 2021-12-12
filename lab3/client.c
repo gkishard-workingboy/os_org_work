@@ -97,7 +97,7 @@ int read_and_insert(FILE* stream, heap* root)
         // read failed.
         return -2;
     }
-    if (key < 0) {
+    if (*key < 0) {
         // stop.
         return -1;
     }
@@ -111,7 +111,6 @@ int read_and_insert(FILE* stream, heap* root)
     
     // get one line from the input.
     ret = getline(&line_buf, &len, stream);
-    printf("[%d %.*s], %d\n", *key, ret, line_buf, ret);
     if (ret < 0) {
         // read failed.
         return -4;
