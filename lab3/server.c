@@ -65,7 +65,7 @@ int insert_string(char* line, unsigned int len, heap* root)
             line_buf = calloc(len - i, sizeof(char));
             strncpy(line_buf, line + i + 1, len - i - 1);
             // add null terminator to the end of string.
-            line_buf[len - i] = '\0';
+            line_buf[len - i - 1] = '\0';
             break;
         }
     }
@@ -330,8 +330,6 @@ int main(int argc, char* argv[])
                         data_rw_obj->fptr = inputs[connections_size];
                         data_rw_obj->last_len = data_rw_obj->line_len = 0;
                         data_rw_obj->line_buf = NULL;
-                        
-                        printf("socket %d connecting.\n", fd);
 
                         if (++connections_size == inputs_size) {
                             ret = epoll_ctl(epoll_fd, EPOLL_CTL_DEL, connection_socket, NULL);
@@ -360,7 +358,7 @@ int main(int argc, char* argv[])
                             if (data_rw_obj->line_buf[j] == '\n'){
                                 strncpy(rd_buf, data_rw_obj->line_buf + data_rw_obj->line_len, j - data_rw_obj->line_len + 1);
                                 // insert line into heap.
-                                ret = insert_string(rd_buf, j - data_rw_obj->line_len + 1, &heap_root);
+                                insert_string(rd_buf, j - data_rw_obj->line_len + 1, &heap_root);
                                 // lets start searching for more line.
                                 data_rw_obj->line_len = j + 1;
                             }
@@ -368,11 +366,10 @@ int main(int argc, char* argv[])
                         // compact line_buf
                         if (data_rw_obj->line_len > 0) {
                             data_rw_obj->last_len -= data_rw_obj->line_len;
-                            strncpy(data_rw_obj->line_buf, data_rw_obj->line_buf + data_rw_obj->line_len, data_rw_obj->last_len - data_rw_obj->line_len);
+                            strncpy(data_rw_obj->line_buf, data_rw_obj->line_buf + data_rw_obj->line_len, data_rw_obj->last_len);
                         }
-                        printf("socket %d ret %d \n", fd, ret);
                         
-                        if (ret < 0){
+                        if (ret == 0){
                             ev.events = EPOLLRDHUP;
                             ev.data.fd = fd;
                             ret = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &ev);
@@ -403,9 +400,11 @@ int main(int argc, char* argv[])
                 // peer disconnected.
                 } else if (evlist[i].events & EPOLLRDHUP) {
                     fd = evlist[i].data.fd;
-                    printf("socket %d closed.\n", fd);
+                    data_rw_obj = &rw_objs[con2rw_obj[fd]];
+                    free(data_rw_obj->line_buf);
                     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
                     close(fd);
+                    
                     // all tasks of client have been finished. 
                     --connections_limit;
                 }
@@ -417,23 +416,24 @@ int main(int argc, char* argv[])
     ret = heap_delmin(&heap_root, (void**)&key, (void**)&value);
     while (ret) {
         fprintf(output, "%s", value);
-        ret = heap_delmin(&heap_root, (void**)&key, (void**)&value);
         // free the dynamically allocated object!
         free(key);
         free(value);
+        ret = heap_delmin(&heap_root, (void**)&key, (void**)&value);
     }
 
     // free the min heap
     heap_destroy(&heap_root);
 
     // print end point
-    printf("server finishes task.");
+    printf("Server finishes task.\n");
 
     // close files
     fcloseall();
 
     // free
     free(rw_objs);
+    free(con2rw_obj);
     free(inputs);
 
     return SUCCESS;
