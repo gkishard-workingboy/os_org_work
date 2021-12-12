@@ -22,7 +22,7 @@ int read_and_send(rw_obj *in, int out)
         // gets the next line from the input.
         in->line_len = getline(&in->line_buf, &in->line_len, in->fptr);
         if (in->line_len == -1) {
-            fclose(in->fptr);
+            write(out, STOP, strlen(STOP));
         } else {
             // write a line to the output.
             in->last_len = write(out, in->line_buf, in->line_len);
