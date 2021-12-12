@@ -67,20 +67,25 @@ Run `make client` to build `client` only.
 Run `make clean` to clean.
 
 ## Testing and Evaluation
-We built and tested our code modularly. When we tested our min heap implementation,
-we found that it prints uninitialized value to the output. We realized that it requires
-the data we passed to the insert function to be a pointer to the dynamically allocated object.
+We built and tested our code modularly. And during our testing, we used `make server_shadow` and
+`make client_shadow` to build program with symbols to use in gdb, which helped us locating the error.
 
-During our testing, we used `make server_shadow` and `make client_shadow` to build program
-with symbols to use in gdb, which helped us locating the error.
+We ran the test with both valid and invalid input and the program correctly prints the usage message
+upon invalid argument, prints an error message if it couldn't open any of the files, and started listening
+on the port specifiede on localhost if all inputs are valid.
+
+When we tested our min heap implementation, we found that it prints uninitialized value to the output.
+We realized that it requires the data we passed to the insert function to be a pointer to the dynamically 
+allocated object. We dynamically allocate the key and it solved the problem. Now the client sends
+the correct sorted data.
 
 We ran the test for jabberwocky sample input, and at the beginning we notices some malloc error 
-like invalid next, also with double free error. After we fix that, we notices that the client cannot
-know when is the time to stop receive messages, so we design an STOP string to denote the end of 
-this communication. Last, we find our writing from sever to client works well while the way 
-back works badly. After long time finding the problem, we finally find out that the problem is because
-client fclose its File pointer early before the client wirte the message back. After all, our 
-client-server works well and writes the sorted lines to the output file.
+like invalid next, also with double free error. After we fix that, we notices that the client is not
+noticed when is the time to stop receive messages, so we design an STOP string with a key value -1 to 
+denote the end of communication. Lastly, we find our writing from sever to client works well while the 
+way back works badly. After long time finding the problem, we finally find out that the problem is 
+because client fclose its File pointer early before the client writes the message back. In the end, we 
+get the complete jabberwocky poem as output after we run the server once and the client five times.
 
 ## Development Efforts
 Zhikuan Wei 16+ hours
