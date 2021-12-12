@@ -66,6 +66,7 @@ unsigned int error_handler(unsigned int error_code, char *message)
 }
 
 /// compares two keys
+/// @return 0 if equal, 1 if greater than, -1 if less than per requirement.
 int cmp_node(void* lhs, void* rhs)
 {
     int l = *(int *)lhs;
@@ -78,7 +79,7 @@ int cmp_node(void* lhs, void* rhs)
 /// read one pair of unsigned int and string and insert into the min heap.
 /// @param stream: the file pointer to the data socket.
 /// @param root: the root of the min heap.
-/// @return -1 upon failure, 0 upon success.
+/// @return negative value upon failure, 0 upon success.
 int read_and_insert(FILE* stream, heap* root)
 {
     // return value
@@ -94,6 +95,10 @@ int read_and_insert(FILE* stream, heap* root)
     ret = fscanf(stream, "%d", key);
     if (ret < 0) {
         // read failed.
+        return -2;
+    }
+    if (*key < 0) {
+        // stop.
         return -1;
     }
     
@@ -101,14 +106,14 @@ int read_and_insert(FILE* stream, heap* root)
     ret = fgetc(stream);
     if (ret < 0) {
         // read failed.
-        return -1;
+        return -3;
     }
     
     // get one line from the input.
     ret = getline(&line_buf, &len, stream);
     if (ret < 0) {
         // read failed.
-        return -1;
+        return -4;
     }
     
     // insert
@@ -181,7 +186,7 @@ int main(int argc, char* argv[])
     printf("Connected to %s on port %s.\n", host_name, service_name);
     
 	// connected, open socket for read.
-	data_fp = fdopen(data_socket, "r+");
+	data_fp = fdopen(data_socket, "r");
 	// on error, NULL is returned.
 	if (data_fp == NULL)
     {
@@ -201,13 +206,30 @@ int main(int argc, char* argv[])
         current_len = read_and_insert(data_fp, &root);
     }
     
+    // close socket for write.
+    fclose(data_fp);
+    
     // write to socket.
     int* key;
     char* value;
+    char* buf = (char*)malloc(MAX_INT_STRING_LEN + max_len + 1);
+    size_t pos;
+    
     ret = heap_delmin(&root, (void**)&key, (void**)&value);
     while (ret) {
         // the end of the string contains endline character.
-        fprintf(data_fp, "%d %s", *key, value);
+        // prepare string
+        sprintf(buf, "%d ", *key);
+        pos = strlen(buf);
+        strcpy(buf + pos, value);
+        printf("%s", buf);
+        
+        pos = 0;
+        while (pos < strlen(buf)) {
+            // check for short writes.
+            pos += write(data_socket, buf + pos, strlen(buf + pos));
+        }
+        
         // free the key, value pair to avoid dangling pointers.
         free(key);
         free(value);
@@ -216,7 +238,7 @@ int main(int argc, char* argv[])
     
     // free the min heap
     heap_destroy(&root);
-    // close socket for write.
-    fclose(data_fp);
+    // close data socket.
+    close(data_socket);
     return SUCCESS;
 }

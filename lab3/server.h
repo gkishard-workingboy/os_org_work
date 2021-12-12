@@ -28,7 +28,7 @@
 #define SOCKET_BACKLOG_SIZE 255
 #define EVENT_SIZE 5
 #define RD_BUF_SIZE 1024
-#define STOP "-1"
+#define STOP "-1 \n"
 
 // argument indices
 typedef enum argument_index
