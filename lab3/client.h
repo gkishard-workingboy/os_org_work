@@ -10,6 +10,7 @@
 
 // socket configs
 #define SOCKET_PROTOCAL 0
+#define MAX_INT_STRING_LEN 5
 
 // argument indices
 typedef enum argument_index

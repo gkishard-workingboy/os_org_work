@@ -45,7 +45,7 @@ int cmp_node(void* lhs, void* rhs)
 /// @param line: the input string.
 /// @param len: lenght of string.
 /// @param root: the specified heap.
-/// @return -1 upon failure, 0 upon success.
+/// @return -1 upon stop.
 int insert_string(char* line, unsigned int len, heap* root)
 {
     // index value
@@ -69,10 +69,12 @@ int insert_string(char* line, unsigned int len, heap* root)
             break;
         }
     }
-    // insert such line into heap.
-    heap_insert(root, key, line_buf);
+    if (*key >= 0) {
+        // insert such line into heap.
+        heap_insert(root, key, line_buf);
+    }
 
-    return (i == len - 1) ? -1 : 0;
+    return *key;
 }
     
 /// main
@@ -314,7 +316,7 @@ int main(int argc, char* argv[])
                             return error_helper(ERR_ACCEPT, strerror(errno), rw_objs, inputs);
                         }
                         // register the new socket into epoll
-                        ev.events = EPOLLOUT | EPOLLRDHUP;
+                        ev.events = EPOLLOUT;
                         ev.data.fd = fd;
                         ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
                         if (ret < 0) {
@@ -328,6 +330,8 @@ int main(int argc, char* argv[])
                         data_rw_obj->fptr = inputs[connections_size];
                         data_rw_obj->last_len = data_rw_obj->line_len = 0;
                         data_rw_obj->line_buf = NULL;
+                        
+                        printf("socket %d connecting.\n", fd);
 
                         if (++connections_size == inputs_size) {
                             ret = epoll_ctl(epoll_fd, EPOLL_CTL_DEL, connection_socket, NULL);
@@ -345,22 +349,33 @@ int main(int argc, char* argv[])
                         
                         data_rw_obj = &rw_objs[con2rw_obj[fd]];
 
+                        ret = read(fd, data_rw_obj->line_buf + data_rw_obj->last_len, RD_BUF_SIZE - data_rw_obj->last_len);
+                        
                         // read data from client. (At most RD_BUF_SIZE)
-                        data_rw_obj->last_len += read(fd, data_rw_obj->line_buf + data_rw_obj->last_len, RD_BUF_SIZE - data_rw_obj->last_len);
+                        data_rw_obj->last_len += ret;
+
                         // search for a line, and do insert for each line.
                         data_rw_obj->line_len = 0;
                         for (int j = 0; j < data_rw_obj->last_len; ++j) {
                             if (data_rw_obj->line_buf[j] == '\n'){
                                 strncpy(rd_buf, data_rw_obj->line_buf + data_rw_obj->line_len, j - data_rw_obj->line_len + 1);
                                 // insert line into heap.
-                                insert_string(rd_buf, j - data_rw_obj->line_len + 1, &heap_root);
+                                ret = insert_string(rd_buf, j - data_rw_obj->line_len + 1, &heap_root);
                                 // lets start searching for more line.
                                 data_rw_obj->line_len = j + 1;
                             }
                         }
                         // compact line_buf
                         if (data_rw_obj->line_len > 0) {
+                            data_rw_obj->last_len -= data_rw_obj->line_len;
                             strncpy(data_rw_obj->line_buf, data_rw_obj->line_buf + data_rw_obj->line_len, data_rw_obj->last_len - data_rw_obj->line_len);
+                        }
+                        printf("socket %d ret %d \n", fd, ret);
+                        
+                        if (ret < 0){
+                            ev.events = EPOLLRDHUP;
+                            ev.data.fd = fd;
+                            ret = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &ev);
                         }
                     }
                 // output is ready
@@ -387,6 +402,8 @@ int main(int argc, char* argv[])
                         }
                 // peer disconnected.
                 } else if (evlist[i].events & EPOLLRDHUP) {
+                    fd = evlist[i].data.fd;
+                    printf("socket %d closed.\n", fd);
                     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
                     close(fd);
                     // all tasks of client have been finished. 

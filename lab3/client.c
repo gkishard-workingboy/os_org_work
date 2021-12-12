@@ -186,7 +186,7 @@ int main(int argc, char* argv[])
     printf("Connected to %s on port %s.\n", host_name, service_name);
     
 	// connected, open socket for read.
-	data_fp = fdopen(data_socket, "r+");
+	data_fp = fdopen(data_socket, "r");
 	// on error, NULL is returned.
 	if (data_fp == NULL)
     {
@@ -206,13 +206,30 @@ int main(int argc, char* argv[])
         current_len = read_and_insert(data_fp, &root);
     }
     
+    // close socket for write.
+    fclose(data_fp);
+    
     // write to socket.
     int* key;
     char* value;
+    char* buf = (char*)malloc(MAX_INT_STRING_LEN + max_len + 1);
+    size_t pos;
+    
     ret = heap_delmin(&root, (void**)&key, (void**)&value);
     while (ret) {
         // the end of the string contains endline character.
-        fprintf(data_fp, "%d %s", *key, value);
+        // prepare string
+        sprintf(buf, "%d ", *key);
+        pos = strlen(buf);
+        strcpy(buf + pos, value);
+        printf("%s", buf);
+        
+        pos = 0;
+        while (pos < strlen(buf)) {
+            // check for short writes.
+            pos += write(data_socket, buf + pos, strlen(buf + pos));
+        }
+        
         // free the key, value pair to avoid dangling pointers.
         free(key);
         free(value);
@@ -221,7 +238,7 @@ int main(int argc, char* argv[])
     
     // free the min heap
     heap_destroy(&root);
-    // close socket for write.
-    fclose(data_fp);
+    // close data socket.
+    close(data_socket);
     return SUCCESS;
 }
