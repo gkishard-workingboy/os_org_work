@@ -21,9 +21,7 @@ int read_and_send(rw_obj *in, int out)
     } else {
         // gets the next line from the input.
         in->line_len = getline(&in->line_buf, &in->line_len, in->fptr);
-        if (in->line_len == -1) {
-            fclose(in->fptr);
-        } else {
+        if (in->line_len != -1) {
             // write a line to the output.
             in->last_len = write(out, in->line_buf, in->line_len);
         }
@@ -390,13 +388,11 @@ int main(int argc, char* argv[])
                     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
                     close(fd);
                     // all tasks of client have been finished. 
-                    if (--connections_limit == 0) {
-                        break;
-                    }
+                    --connections_limit;
                 }
             }
         }
-    } while (1);
+    } while (connections_limit > 0);
 
     // keep pop the top object of heap, and output it to the output file until no object left in heap.
     ret = heap_delmin(&heap_root, (void**)&key, (void**)&value);

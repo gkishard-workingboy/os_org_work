@@ -66,6 +66,7 @@ unsigned int error_handler(unsigned int error_code, char *message)
 }
 
 /// compares two keys
+/// @return 0 if equal, 1 if greater than, -1 if less than per requirement.
 int cmp_node(void* lhs, void* rhs)
 {
     int l = *(int *)lhs;
@@ -78,7 +79,7 @@ int cmp_node(void* lhs, void* rhs)
 /// read one pair of unsigned int and string and insert into the min heap.
 /// @param stream: the file pointer to the data socket.
 /// @param root: the root of the min heap.
-/// @return -1 upon failure, 0 upon success.
+/// @return negative value upon failure, 0 upon success.
 int read_and_insert(FILE* stream, heap* root)
 {
     // return value
@@ -94,6 +95,10 @@ int read_and_insert(FILE* stream, heap* root)
     ret = fscanf(stream, "%d", key);
     if (ret < 0) {
         // read failed.
+        return -2;
+    }
+    if (key < 0) {
+        // stop.
         return -1;
     }
     
@@ -101,14 +106,15 @@ int read_and_insert(FILE* stream, heap* root)
     ret = fgetc(stream);
     if (ret < 0) {
         // read failed.
-        return -1;
+        return -3;
     }
     
     // get one line from the input.
     ret = getline(&line_buf, &len, stream);
+    printf("[%d %.*s], %d\n", *key, ret, line_buf, ret);
     if (ret < 0) {
         // read failed.
-        return -1;
+        return -4;
     }
     
     // insert
