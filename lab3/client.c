@@ -219,7 +219,6 @@ int main(int argc, char* argv[])
         sprintf(buf, "%d ", *key);
         pos = strlen(buf);
         strcpy(buf + pos, value);
-        printf("%s", buf);
         
         pos = 0;
         while (pos < strlen(buf)) {

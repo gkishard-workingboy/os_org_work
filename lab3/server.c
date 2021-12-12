@@ -330,8 +330,6 @@ int main(int argc, char* argv[])
                         data_rw_obj->fptr = inputs[connections_size];
                         data_rw_obj->last_len = data_rw_obj->line_len = 0;
                         data_rw_obj->line_buf = NULL;
-                        
-                        printf("socket %d connecting.\n", fd);
 
                         if (++connections_size == inputs_size) {
                             ret = epoll_ctl(epoll_fd, EPOLL_CTL_DEL, connection_socket, NULL);
@@ -359,7 +357,6 @@ int main(int argc, char* argv[])
                         for (int j = 0; j < data_rw_obj->last_len; ++j) {
                             if (data_rw_obj->line_buf[j] == '\n'){
                                 strncpy(rd_buf, data_rw_obj->line_buf + data_rw_obj->line_len, j - data_rw_obj->line_len + 1);
-                                printf("%.*s\n", j-data_rw_obj->line_len+1, rd_buf);
                                 // insert line into heap.
                                 insert_string(rd_buf, j - data_rw_obj->line_len + 1, &heap_root);
                                 // lets start searching for more line.
@@ -371,7 +368,6 @@ int main(int argc, char* argv[])
                             data_rw_obj->last_len -= data_rw_obj->line_len;
                             strncpy(data_rw_obj->line_buf, data_rw_obj->line_buf + data_rw_obj->line_len, data_rw_obj->last_len);
                         }
-                        printf("socket %d ret %d \n", fd, ret);
                         
                         if (ret == 0){
                             ev.events = EPOLLRDHUP;
@@ -406,7 +402,6 @@ int main(int argc, char* argv[])
                     fd = evlist[i].data.fd;
                     data_rw_obj = &rw_objs[con2rw_obj[fd]];
                     free(data_rw_obj->line_buf);
-                    printf("socket %d closed.\n", fd);
                     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
                     close(fd);
                     
@@ -431,7 +426,7 @@ int main(int argc, char* argv[])
     heap_destroy(&heap_root);
 
     // print end point
-    printf("server finishes task.");
+    printf("Server finishes task.\n");
 
     // close files
     fcloseall();
