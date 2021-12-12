@@ -54,10 +54,11 @@ store the line number as key and a char * buffer for the line based on how much 
 before line deliminater. After reading a complete line, it inserts the <int, char *> pair into 
 a min heap. When it reads EOF, the library function will return -1 and it stops reading.
 
-Then it repeatedly extracts the minimum <int, char *> pair from the min heap and prints it to 
+Then it repeatedly extracts the minimum <int, char *> pair from the min heap and write it to 
 the socket file stream then free the <int, char *> pair until it the heap is empty and no more 
 pair could be extracted. The program has now been successfully executed and returns 0 to 
-indicate success.
+indicate success. We deal with short write by checking the return value from write and write
+repeatedly until all content of a line is written.
 
 ## Build Instructions
 Run `make` to build `server` and `client`.
@@ -70,6 +71,9 @@ We built and tested our code modularly. When we tested our min heap implementati
 we found that it prints uninitialized value to the output. We realized that it requires
 the data we passed to the insert function to be a pointer to the dynamically allocated object.
 
+During our testing, we used `make server_shadow` and `make client_shadow` to build program
+with symbols to use in gdb, which helped us locating the error.
+
 We ran the test for jabberwocky sample input, and at the beginning we notices some malloc error 
 like invalid next, also with double free error. After we fix that, we notices that the client cannot
 know when is the time to stop receive messages, so we design an STOP string to denote the end of 
@@ -80,5 +84,7 @@ client-server works well and writes the sorted lines to the output file.
 
 ## Development Efforts
 Zhikuan Wei 16+ hours
-Zhuroan Sun
+Mainly worked on server socket and epoll.
+Zhuroan Sun 19+ hours
+Mainly worked on client socket and server file io.
 
