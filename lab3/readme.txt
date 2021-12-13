@@ -54,10 +54,11 @@ store the line number as key and a char * buffer for the line based on how much 
 before line deliminater. After reading a complete line, it inserts the <int, char *> pair into 
 a min heap. When it reads EOF, the library function will return -1 and it stops reading.
 
-Then it repeatedly extracts the minimum <int, char *> pair from the min heap and prints it to 
+Then it repeatedly extracts the minimum <int, char *> pair from the min heap and write it to 
 the socket file stream then free the <int, char *> pair until it the heap is empty and no more 
 pair could be extracted. The program has now been successfully executed and returns 0 to 
-indicate success.
+indicate success. We deal with short write by checking the return value from write and write
+repeatedly until all content of a line is written.
 
 ## Build Instructions
 Run `make` to build `server` and `client`.
@@ -66,19 +67,126 @@ Run `make client` to build `client` only.
 Run `make clean` to clean.
 
 ## Testing and Evaluation
-We built and tested our code modularly. When we tested our min heap implementation,
-we found that it prints uninitialized value to the output. We realized that it requires
-the data we passed to the insert function to be a pointer to the dynamically allocated object.
+We built and tested our code modularly. And during our testing, we used `make server_shadow` and
+`make client_shadow` to build program with symbols to use in gdb, which helped us locating the error.
 
-We ran the test for jabberwocky sample input, and at the beginning we notices some malloc error 
-like invalid next, also with double free error. After we fix that, we notices that the client cannot
-know when is the time to stop receive messages, so we design an STOP string to denote the end of 
-this communication. Last, we find our writing from sever to client works well while the way 
-back works badly. After long time finding the problem, we finally find out that the problem is because
-client fclose its File pointer early before the client wirte the message back. After all, our 
-client-server works well and writes the sorted lines to the output file.
+We ran the test with both valid and invalid input and the program correctly prints the usage message
+upon invalid argument, prints an error message if it couldn't open any of the files, and started listening
+on the port specifiede on localhost if all inputs are valid.
+
+When we tested our min heap implementation, we found that it prints uninitialized value to the output.
+We realized that it requires the data we passed to the insert function to be a pointer to the dynamically 
+allocated object. We dynamically allocate the key and it solved the problem. Now the client sends
+the correct sorted data.
+
+We ran the test for jabberwocky sample input, and at the beginning we noticed that we get malloc error such
+as invalid next and double free error. After we fixed that, we noticed that the client is not
+noticed when is the time to stop receive messages, so we design an STOP string with a key value -1 to 
+denote the end of communication. Lastly, we find our writing from sever to client works well while the 
+way back works badly. After long time finding the problem, we finally found out that the problem is 
+because client fclose its FILE pointer early before the client writes the message back. In the end, we 
+get the complete jabberwocky poem as output after we run the server once and the client five times.
+
+Then we used a simple shell script to verify and time our program against jabberwocky.
+```
+pi@jordansunpi:~/Documents/CSE422S/lab3/operating_system_organization/lab3/test $ ./jabberwocky.sh 
+Starting sever.
+Created connection socket 10.
+Hosting on jordansunpi on port 9090.
+Start listening on connection socket 10.
+16:02:48.510460626
+Strating 5 clients
+Created data socket 3.
+Created data socket 3.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Created data socket 3.
+Connected data socket 3.
+Created data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Created data socket 3.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Closing connection socket 10.
+Server finishes task.
+16:02:48.545113521
+Showing differences (if any)
+```
+We saw that our program completed in about 35 miliseconds and
+there's no difference between the original file and the output
+file by comparing them using the diff command.
+
+We then cut a larget text file and ran our program with the larget text file.
+```
+pi@jordansunpi:~/Documents/CSE422S/lab3/operating_system_organization/lab3/test $ ./github_terms_of_service.sh 
+Starting sever.
+Created connection socket 21.
+Hosting on jordansunpi on port 9090.
+Start listening on connection socket 21.
+16:09:11.289004406
+Strating 16 clients
+Created data socket 3.
+Created data socket 3.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Created data socket 3.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Created data socket 3.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Created data socket 3.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Created data socket 3.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Created data socket 3.
+Created data socket 3.
+Created data socket 3.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Created data socket 3.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Created data socket 3.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Created data socket 3.
+Created data socket 3.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Created data socket 3.
+Connected data socket 3.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Connected to 0.0.0.0 on port 9090.
+Created data socket 3.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Created data socket 3.
+Connected data socket 3.
+Connected to 0.0.0.0 on port 9090.
+Closing connection socket 21.
+Server finishes task.
+16:09:11.382107872
+Showing differences (if any)
+```
+Our program ran successfully and took about 93 miliseconds.
 
 ## Development Efforts
 Zhikuan Wei 16+ hours
-Zhuroan Sun
+Mainly worked on server socket and epoll.
+Zhuroan Sun 19+ hours
+Mainly worked on client socket and server file io.
 
