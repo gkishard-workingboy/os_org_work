@@ -41,7 +41,7 @@ Then it creates a data socket and try to connect to the server specified by the 
 If any step fails, it prints an error message describing the error, frees any dynamically 
 allocated resource, and returns an unique error code.
 
-After the client is connected to the server, it creates a min heap of <int, char *>
+After the client connecting to the server, it creates a min heap of <int, char *>
 pairs. We used [this implementation of priority queue as a heap stored in an array]
 (https://github.com/armon/c-minheap-array). The class pass an approriate comparasion 
 function to the constructor such that it is a min heap. This allows us to insert a line 
